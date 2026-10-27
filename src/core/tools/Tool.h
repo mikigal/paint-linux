@@ -2,6 +2,7 @@
 
 #include <QPointF>
 #include <QRect>
+#include <QString>
 #include <Qt>
 
 namespace paint {
@@ -19,6 +20,14 @@ struct PointerEvent
     qreal screenPixel = 1.0;
     // The press is the second click of a double click.
     bool doubleClick = false;
+};
+
+struct KeyEvent
+{
+    int key = 0;
+    Qt::KeyboardModifiers modifiers = {};
+    // What the key types, if anything.
+    QString text = {};
 };
 
 // What a tool may touch. Implemented by Editor; tests can provide their own.
@@ -58,12 +67,20 @@ public:
     // Finishes pending work, e.g. places a moved selection (tool switch, saving).
     virtual void commit() {}
     // Keyboard input while the canvas has focus; returns whether the key was used.
-    virtual bool keyPress(int key, Qt::KeyboardModifiers modifiers)
+    virtual bool keyPress(const KeyEvent &event)
     {
-        Q_UNUSED(key)
-        Q_UNUSED(modifiers)
+        Q_UNUSED(event)
         return false;
     }
+    // Whether the tool takes this key before the window's shortcuts (typing text).
+    virtual bool wantsKey(const KeyEvent &event) const
+    {
+        Q_UNUSED(event)
+        return false;
+    }
+    // Undo and redo within unfinished work (typing); false when there is nothing to undo there.
+    virtual bool undo() { return false; }
+    virtual bool redo() { return false; }
     // Whether an action (e.g. a stroke) is in progress.
     virtual bool isActive() const { return false; }
 

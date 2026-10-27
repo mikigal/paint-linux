@@ -472,13 +472,13 @@ QImage SelectionTool::copy(bool visibleLayers) const
     return image;
 }
 
-bool SelectionTool::keyPress(int key, Qt::KeyboardModifiers)
+bool SelectionTool::keyPress(const KeyEvent &event)
 {
     if (!hasSelection() || m_drag != Drag::None) {
         return false;
     }
     QPointF step;
-    switch (key) {
+    switch (event.key) {
     case Qt::Key_Left:
         step = {-1, 0};
         break;

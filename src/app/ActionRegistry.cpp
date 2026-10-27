@@ -266,6 +266,55 @@ QList<ActionSpec> actionSpecs()
          {ctrl(Qt::Key_Minus)}},
         {ActionId::EditColors, "color.edit", QT_TRANSLATE_NOOP("ActionRegistry", "&Edit colors…"),
          "edit-colors"},
+        // Text format bar
+        {ActionId::TextBold,
+         "text.bold",
+         QT_TRANSLATE_NOOP("ActionRegistry", "Bold"),
+         "text-bold",
+         {ctrl(Qt::Key_B)},
+         true},
+        {ActionId::TextItalic,
+         "text.italic",
+         QT_TRANSLATE_NOOP("ActionRegistry", "Italic"),
+         "text-italic",
+         {ctrl(Qt::Key_I)},
+         true},
+        {ActionId::TextUnderline,
+         "text.underline",
+         QT_TRANSLATE_NOOP("ActionRegistry", "Underline"),
+         "text-underline",
+         {ctrl(Qt::Key_U)},
+         true},
+        {ActionId::TextStrikethrough,
+         "text.strikethrough",
+         QT_TRANSLATE_NOOP("ActionRegistry", "Strikethrough"),
+         "text-strikethrough",
+         {},
+         true},
+        {ActionId::TextAlignLeft,
+         "text.alignLeft",
+         QT_TRANSLATE_NOOP("ActionRegistry", "Align left"),
+         "text-align-left",
+         {},
+         true},
+        {ActionId::TextAlignCenter,
+         "text.alignCenter",
+         QT_TRANSLATE_NOOP("ActionRegistry", "Center"),
+         "text-align-center",
+         {},
+         true},
+        {ActionId::TextAlignRight,
+         "text.alignRight",
+         QT_TRANSLATE_NOOP("ActionRegistry", "Align right"),
+         "text-align-right",
+         {},
+         true},
+        {ActionId::TextBackground,
+         "text.background",
+         QT_TRANSLATE_NOOP("ActionRegistry", "Fill background"),
+         "shape-fill",
+         {},
+         true},
         // Help
         {ActionId::About, "help.about", QT_TRANSLATE_NOOP("ActionRegistry", "&About Paint for Linux"),
          "@help-about"},
@@ -459,6 +508,27 @@ void ActionRegistry::createToolActions(QWidget *window)
             [this] { m_settings->setSize(m_settings->size() - 1); });
     connect(get(ActionId::TransparentSelection), &QAction::toggled, m_settings,
             &ToolSettings::setTransparentSelection);
+
+    // Text formatting changes the settings; the text tool applies them to the text being typed.
+    const auto formatToggle = [this](ActionId id, bool TextFormat::*property) {
+        connect(get(id), &QAction::triggered, this, [this, property](bool checked) {
+            TextFormat format = m_settings->textFormat();
+            format.*property = checked;
+            m_settings->setTextFormat(format);
+        });
+    };
+    formatToggle(ActionId::TextBold, &TextFormat::bold);
+    formatToggle(ActionId::TextItalic, &TextFormat::italic);
+    formatToggle(ActionId::TextUnderline, &TextFormat::underline);
+    formatToggle(ActionId::TextStrikethrough, &TextFormat::strikeOut);
+    auto *alignment = new QActionGroup(this);
+    for (const auto &[id, flag] : {std::pair{ActionId::TextAlignLeft, Qt::AlignLeft},
+                                   {ActionId::TextAlignCenter, Qt::AlignHCenter},
+                                   {ActionId::TextAlignRight, Qt::AlignRight}}) {
+        alignment->addAction(get(id));
+        connect(get(id), &QAction::triggered, this, [this, flag] { m_settings->setTextAlignment(flag); });
+    }
+    connect(get(ActionId::TextBackground), &QAction::triggered, m_settings, &ToolSettings::setTextBackground);
 }
 
 void ActionRegistry::connectSettings()
@@ -474,6 +544,10 @@ void ActionRegistry::connectSettings()
     connect(m_settings, &ToolSettings::sizeChanged, this, [this] { syncTool(m_settings->tool()); });
     connect(m_settings, &ToolSettings::transparentSelectionChanged, get(ActionId::TransparentSelection),
             &QAction::setChecked);
+    connect(m_settings, &ToolSettings::textFormatChanged, this, &ActionRegistry::syncTextFormat);
+    connect(m_settings, &ToolSettings::textAlignmentChanged, this, &ActionRegistry::syncTextFormat);
+    connect(m_settings, &ToolSettings::textBackgroundChanged, this, &ActionRegistry::syncTextFormat);
+    syncTextFormat();
 
     m_brushActions.value(m_settings->brushType())->setChecked(true);
     m_outlineActions.value(m_settings->outlineStyle())->setChecked(true);
@@ -502,6 +576,27 @@ void ActionRegistry::syncTool(Tool tool)
     }
     get(ActionId::SizeIncrease)->setEnabled(toolUsesSize(tool));
     get(ActionId::SizeDecrease)->setEnabled(toolUsesSize(tool));
+    // Text formatting (and its Ctrl+B/I/U) only while the text tool is active.
+    for (ActionId id : {ActionId::TextBold, ActionId::TextItalic, ActionId::TextUnderline,
+                        ActionId::TextStrikethrough, ActionId::TextAlignLeft, ActionId::TextAlignCenter,
+                        ActionId::TextAlignRight, ActionId::TextBackground}) {
+        get(id)->setEnabled(tool == Tool::Text);
+    }
+}
+
+void ActionRegistry::syncTextFormat()
+{
+    const TextFormat format = m_settings->textFormat();
+    get(ActionId::TextBold)->setChecked(format.bold);
+    get(ActionId::TextItalic)->setChecked(format.italic);
+    get(ActionId::TextUnderline)->setChecked(format.underline);
+    get(ActionId::TextStrikethrough)->setChecked(format.strikeOut);
+    const Qt::Alignment alignment = m_settings->textAlignment();
+    get(alignment & Qt::AlignHCenter ? ActionId::TextAlignCenter
+        : alignment & Qt::AlignRight ? ActionId::TextAlignRight
+                                     : ActionId::TextAlignLeft)
+        ->setChecked(true);
+    get(ActionId::TextBackground)->setChecked(m_settings->textBackground());
 }
 
 QAction *ActionRegistry::toolAction(Tool tool) const

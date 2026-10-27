@@ -29,12 +29,4 @@ public:
     void press(const PointerEvent &event) override;
 };
 
-// Placeholder for tools whose canvas interaction lands in later milestones.
-class InertTool : public InteractiveTool
-{
-public:
-    using InteractiveTool::InteractiveTool;
-    void press(const PointerEvent &) override {}
-};
-
 } // namespace paint

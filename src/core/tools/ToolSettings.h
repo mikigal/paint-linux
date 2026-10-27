@@ -6,8 +6,22 @@
 #include <QHash>
 #include <QList>
 #include <QObject>
+#include <QString>
 
 namespace paint {
+
+// Character formatting for the text tool: what the format bar shows and new text gets.
+struct TextFormat
+{
+    QString family; // empty: the system's default font
+    qreal pointSize = 11;
+    bool bold = false;
+    bool italic = false;
+    bool underline = false;
+    bool strikeOut = false;
+
+    bool operator==(const TextFormat &) const = default;
+};
 
 // The user's current tool choices: active tool, brush and shape types, colours and the
 // per-tool slider values. Shared by the ribbon, the side panel and (later) the tools.
@@ -62,6 +76,16 @@ public:
     bool transparentSelection() const { return m_transparentSelection; }
     void setTransparentSelection(bool enabled);
 
+    static constexpr qreal MinTextSize = 1;
+    static constexpr qreal MaxTextSize = 500;
+    TextFormat textFormat() const { return m_textFormat; }
+    void setTextFormat(TextFormat format);
+    Qt::Alignment textAlignment() const { return m_textAlignment; }
+    void setTextAlignment(Qt::Alignment alignment);
+    // Paint's "Fill background": text boxes are filled with colour 2 instead of transparent.
+    bool textBackground() const { return m_textBackground; }
+    void setTextBackground(bool enabled);
+
 Q_SIGNALS:
     void toolChanged(paint::Tool tool);
     void brushTypeChanged(paint::BrushType type);
@@ -75,6 +99,9 @@ Q_SIGNALS:
     void opacityChanged(int percent);
     void fillToleranceChanged(int percent);
     void transparentSelectionChanged(bool enabled);
+    void textFormatChanged(const paint::TextFormat &format);
+    void textAlignmentChanged(Qt::Alignment alignment);
+    void textBackgroundChanged(bool enabled);
 
 private:
     Tool m_tool = Tool::Pencil;
@@ -92,6 +119,9 @@ private:
     QHash<Tool, int> m_opacities;
     int m_fillTolerance = 0;
     bool m_transparentSelection = false;
+    TextFormat m_textFormat;
+    Qt::Alignment m_textAlignment = Qt::AlignLeft;
+    bool m_textBackground = false;
 };
 
 } // namespace paint

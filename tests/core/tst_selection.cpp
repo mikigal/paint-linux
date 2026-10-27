@@ -115,11 +115,11 @@ private Q_SLOTS:
     void arrowKeysNudge()
     {
         drag({5, 5}, {15, 15});
-        QVERIFY(selection()->keyPress(Qt::Key_Right, {}));
-        QVERIFY(selection()->keyPress(Qt::Key_Down, {}));
+        QVERIFY(selection()->keyPress({Qt::Key_Right}));
+        QVERIFY(selection()->keyPress({Qt::Key_Down}));
         QCOMPARE(selection()->bounds(), QRect(6, 6, 10, 10));
         QCOMPARE(pixel(15, 15), QColor(Qt::red));
-        QVERIFY(selection()->keyPress(Qt::Key_Escape, {}));
+        QVERIFY(selection()->keyPress({Qt::Key_Escape}));
         QVERIFY(!selection()->hasSelection());
     }
 

@@ -1,4 +1,8 @@
 add_library(paint_core STATIC
+    brushes/Bristles.cpp
+    brushes/Bristles.h
+    brushes/Textures.cpp
+    brushes/Textures.h
     color/DefaultPalette.h
     document/Document.cpp
     document/Document.h
@@ -29,6 +33,8 @@ add_library(paint_core STATIC
     tools/ShapeTool.h
     tools/StrokeTools.cpp
     tools/StrokeTools.h
+    tools/TextTool.cpp
+    tools/TextTool.h
     tools/Tool.h
     tools/ToolSettings.cpp
     tools/ToolSettings.h

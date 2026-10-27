@@ -6,6 +6,7 @@ Screenshots are compared against tests/visual/baselines/<name>.png by run.py.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -53,6 +54,17 @@ PICTURE: list[Step] = [
     ("property", {"target": "sidePanel.size.slider", "name": "value", "value": 25}),
 ]
 PICTURE.append(draw([[200, 150], [350, 300], [500, 150]], steps=20))
+BRUSHES = ["brush", "calligraphyBrush", "calligraphyPen", "airbrush", "oilBrush", "crayon", "marker",
+           "naturalPencil", "watercolorBrush"]
+
+
+def wave(left: int, top: int) -> Step:
+    # One period of a sine-like wave, 280 px wide, in canvas viewport coordinates.
+    points = [[left + x, top + 50 - int(45 * math.sin(x / 280 * 2 * math.pi))]
+              for x in range(0, 281, 8)]
+    return draw(points, steps=2)
+
+
 # Moves the pointer off the canvas so hover effects do not depend on timing.
 AWAY: Step = ("mouse", {"action": "move", "x": 1200, "y": 700})
 
@@ -177,6 +189,28 @@ SCENARIOS: list[Scenario] = [
         ("drag", {"relativeTo": "canvasView.viewport", "from": [600, 350], "to": [950, 350]}),
         ("drag", {"relativeTo": "canvasView.viewport", "from": [700, 350], "to": [700, 150]}),
         ("drag", {"relativeTo": "canvasView.viewport", "from": [880, 350], "to": [880, 480]}), AWAY]),
+    # Brushes: every brush type draws the same wave.
+    Scenario("brushes-all-light", steps=[
+        click("ribbon.palette.8"), invoke("tool.brush"), slider("size", 16),
+        *[step for i, brush in enumerate(BRUSHES)
+          for step in (invoke(f"brush.{brush}"), wave(80 + (i % 3) * 360, 40 + (i // 3) * 190))],
+        AWAY]),
+    # Text: the format bar shows under the ribbon while the text tool is active.
+    Scenario("text-editing-light", steps=[
+        invoke("tool.text"),
+        ("drag", {"relativeTo": "canvasView.viewport", "from": [150, 120], "to": [560, 200]}),
+        ("type", {"text": "Hello from Paint for Linux, typed into a wrapping text box"}),
+        ("key", {"keys": "Ctrl+Shift+Left,Ctrl+Shift+Left"}), AWAY]),
+    Scenario("text-formatted-dark", theme="dark", steps=[
+        invoke("tool.text"), click("ribbon.color2"), click("ribbon.palette.5"), click("ribbon.color1"),
+        click("ribbon.palette.2"), invoke("text.background"),
+        ("drag", {"relativeTo": "canvasView.viewport", "from": [300, 200], "to": [700, 290]}),
+        ("type", {"text": "Plain "}), ("key", {"keys": "Ctrl+B"}), ("type", {"text": "bold "}),
+        ("key", {"keys": "Ctrl+B,Ctrl+I"}), ("type", {"text": "italic "}), ("key", {"keys": "Ctrl+I,Ctrl+U"}),
+        ("type", {"text": "underlined"}), ("key", {"keys": "Ctrl+U"}),
+        # The rotate handle sits 24 px above the middle of the top edge.
+        ("drag", {"relativeTo": "canvasView.viewport", "from": [500, 176], "to": [700, 120], "modifiers": "shift"}),
+        AWAY]),
     # Image commands
     Scenario("image-rotated-right-light", steps=[*PICTURE, invoke("image.rotateRight"), AWAY]),
     Scenario("image-inverted-dark", theme="dark", steps=[*PICTURE, invoke("image.invertColors"), AWAY]),

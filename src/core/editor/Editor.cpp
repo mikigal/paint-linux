@@ -4,6 +4,7 @@
 #include "tools/SelectionTool.h"
 #include "tools/ShapeTool.h"
 #include "tools/StrokeTools.h"
+#include "tools/TextTool.h"
 #include "tools/ToolSettings.h"
 
 #include <QFileInfo>
@@ -30,7 +31,8 @@ Editor::Editor(ToolSettings *settings, QObject *parent)
     m_tools.insert(Tool::FreeformSelect, m_selection);
     m_shape = std::make_shared<ShapeTool>(*this);
     m_tools.insert(Tool::Shape, m_shape);
-    m_tools.insert(Tool::Text, std::make_shared<InertTool>(*this));
+    m_text = std::make_shared<TextTool>(*this);
+    m_tools.insert(Tool::Text, m_text);
     m_activeTool = currentTool();
 
     connect(settings, &ToolSettings::transparentSelectionChanged, this, [this] { m_selection->refresh(); });
@@ -39,12 +41,19 @@ Editor::Editor(ToolSettings *settings, QObject *parent)
             m_selection->refresh();
         }
         m_shape->refresh();
+        m_text->refresh();
     });
     // A shape being edited follows the size and style settings; picking another shape places it.
     connect(settings, &ToolSettings::sizeChanged, this, [this] { m_shape->refresh(); });
     connect(settings, &ToolSettings::outlineStyleChanged, this, [this] { m_shape->refresh(); });
     connect(settings, &ToolSettings::fillStyleChanged, this, [this] { m_shape->refresh(); });
     connect(settings, &ToolSettings::shapeTypeChanged, this, [this] { m_shape->commit(); });
+    // The format bar formats the text being typed.
+    connect(settings, &ToolSettings::textFormatChanged, this,
+            [this](const TextFormat &format) { m_text->applyFormat(format); });
+    connect(settings, &ToolSettings::textAlignmentChanged, this,
+            [this](Qt::Alignment alignment) { m_text->applyAlignment(alignment); });
+    connect(settings, &ToolSettings::textBackgroundChanged, this, [this] { m_text->refresh(); });
     connect(&m_history, &History::documentChanged, this, &Editor::pixelsChanged);
     connect(&m_history, &History::documentRestructured, this, &Editor::documentRestructured);
     connect(m_history.stack(), &QUndoStack::cleanChanged, this,
@@ -97,9 +106,12 @@ void Editor::selectionChanged()
 
 void Editor::undo()
 {
-    // Undo while drawing or moving a selection drops that unfinished work, not the previous step.
+    // Undo while drawing or moving a selection drops that unfinished work, not the previous step;
+    // while typing it undoes the typing first.
     if (InteractiveTool *tool = currentTool(); tool && tool->isActive()) {
-        tool->cancel();
+        if (!tool->undo()) {
+            tool->cancel();
+        }
         return;
     }
     m_selection->cancel();
@@ -108,6 +120,9 @@ void Editor::undo()
 
 void Editor::redo()
 {
+    if (InteractiveTool *tool = currentTool(); tool && tool->redo()) {
+        return;
+    }
     cancelTool();
     m_selection->cancel();
     m_history.redo();

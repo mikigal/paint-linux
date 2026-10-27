@@ -6,6 +6,7 @@
 #include <QAbstractScrollArea>
 #include <QImage>
 #include <QList>
+#include <QTimer>
 
 #include <optional>
 
@@ -54,6 +55,7 @@ Q_SIGNALS:
     void canvasResizePreview(std::optional<QSize> size);
 
 protected:
+    bool event(QEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
     void scrollContentsBy(int dx, int dy) override;
@@ -69,6 +71,8 @@ protected:
     void dragEnterEvent(QDragEnterEvent *event) override;
     void dragMoveEvent(QDragMoveEvent *event) override;
     void dropEvent(QDropEvent *event) override;
+    void inputMethodEvent(QInputMethodEvent *event) override;
+    QVariant inputMethodQuery(Qt::InputMethodQuery query) const override;
 
 private:
     void handlePixelsChanged(const QRect &area);
@@ -88,6 +92,11 @@ private:
     void setHoverPosition(std::optional<QPointF> position);
     void updateCursor();
     void updateFrameCursor(paint::BoxHandle handle, qreal angle);
+    bool isEditingText() const;
+    // The text cursor's bounds in viewport coordinates.
+    std::optional<QRectF> caretRect() const;
+    void restartCaretBlink();
+    void updateTextInput();
     // The canvas resize handle under a viewport point (index into handleRects()), or -1.
     int canvasHandleAt(QPointF viewportPoint) const;
     QRect canvasResizeTarget(QPointF viewportPoint) const;
@@ -101,4 +110,9 @@ private:
     int m_resizeHandle = -1;
     QPointF m_resizeStart;
     std::optional<QRect> m_resizeTarget;
+    QTimer m_caretTimer;
+    bool m_caretVisible = true;
+    // The airbrush keeps spraying while the pointer rests.
+    QTimer m_sprayTimer;
+    QPointF m_pointer; // last pointer position in document coordinates
 };

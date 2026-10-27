@@ -102,7 +102,7 @@ a Linux-native form).
 |---|---|---|---|---|
 | Pencil | 1 px default, opacity slider, circular cursor | Same: hard-edged, opacity without build-up, size outline cursor | M2 | done |
 | Fill | Flood fill with tolerance slider | Same: scanline flood fill on the active layer, 0–100 % tolerance | M2 | done |
-| Text | Text box + format bar | `TextFormatBar` toolbar | M6 | todo |
+| Text | Text box + format bar | Text box on the canvas with a native format bar under the ribbon while the tool is active | M6 | done |
 | Eraser | Erases to transparency, transparency slider | Same: square, to transparency, strength from the transparency slider | M2 | done |
 | Color picker | Left → colour 1, right → colour 2 | Same, then returns to the previous tool | M2 | done |
 | Magnifier | Click zooms in, right-click zooms out | Same | M2 | done |
@@ -113,7 +113,7 @@ a Linux-native form).
 
 | Feature | Paint | Paint for Linux | M | Status |
 |---|---|---|---|---|
-| Brush, Calligraphy brush, Calligraphy pen, Airbrush, Oil brush, Crayon, Marker, Natural pencil, Watercolor brush | Stamp-based, size + opacity | Round brush with opacity done; the other eight engines in M6 | M6 | in progress |
+| Brush, Calligraphy brush, Calligraphy pen, Airbrush, Oil brush, Crayon, Marker, Natural pencil, Watercolor brush | Stamp-based, size + opacity | All nine: round brush; slanted nibs for the calligraphy brush and pen; an airbrush that also sprays while the pointer rests; oil bristles in varied shades; crayon, marker, natural pencil and watercolour with paper grain fixed to the document. Opacity without build-up within a stroke; random parts seeded per stroke | M6 | done |
 
 ## Shapes
 
@@ -121,7 +121,7 @@ a Linux-native form).
 |---|---|---|---|---|
 | Line, Curve, Oval, Rectangle, Rounded rectangle, Polygon, Triangle, Right triangle, Diamond, Pentagon, Hexagon, 4 arrows, 4/5/6-point stars, 3 callouts, Heart, Lightning | 23 shapes *(verify names)* | Same; the outline is colour 1 and the fill colour 2 (swapped when drawn with the right button); the outline grows inside the dragged box | M5 | done |
 | Curve and polygon | Curve: line, then two bends; polygon: click corners | Same; a polygon closes on its first corner, a double click or Enter | M5 | done |
-| Outline / Fill styles | None, Solid, Crayon, Marker, Oil, Natural pencil, Watercolor | Same, as deterministic textures that move with the shape; the brush engines replace them in M6 if they differ | M5 | done |
+| Outline / Fill styles | None, Solid, Crayon, Marker, Oil, Natural pencil, Watercolor | Same textures as the brushes, moving with the shape; oil outlines are painted with the oil brush's bristles | M5/M6 | done |
 | Editable until committed | Handles + rotate handle | Same: move, resize and rotate with the frame, live restyling from colours, size and styles; arrow keys nudge, Enter/Esc place, Delete discards, undo drops the shape; lines get end handles | M5 | done |
 | Shift constraint | Squares/circles, 45° lines | Same, also for resizing corners and rotating in 15° steps | M5 | done |
 
@@ -129,9 +129,10 @@ a Linux-native form).
 
 | Feature | Paint | Paint for Linux | M | Status |
 |---|---|---|---|---|
-| Font, size, B/I/U/S, alignment | Floating format bar | Same | M6 | todo |
-| Background fill | Checkbox, colour 2 | Same | M6 | todo |
-| Rotation | Rotate handle | Same | M6 | todo |
+| Font, size, B/I/U/S, alignment | Floating format bar | A native tool bar under the ribbon (Ctrl+B/I/U); formats the selected text, or what is typed next | M6 | done |
+| Text box | Drag or click, text in colour 1, wraps and grows | Same; the border moves the box, handles resize it; full keyboard and mouse editing, clipboard, undo of typing, input methods; tool shortcuts do not fire while typing | M6 | done |
+| Background fill | Checkbox, colour 2 | Same ("Fill background") | M6 | done |
+| Rotation | Rotate handle | Same; Shift turns in 15° steps | M6 | done |
 
 ## Colors
 

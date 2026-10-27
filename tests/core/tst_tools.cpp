@@ -5,6 +5,9 @@
 #include <QSignalSpy>
 #include <QTest>
 
+#include <cmath>
+#include <numbers>
+
 using namespace paint;
 
 // Drives the interactive tools through Editor, as the canvas does.
@@ -66,6 +69,56 @@ private Q_SLOTS:
         stroke({{4, 25}, {12, 6}, {22, 22}, {36, 5}});
         PAINT_COMPARE_GOLDEN(m_editor->document().composite(), QStringLiteral("tools/brush-stroke"),
                              {.channelTolerance = 2});
+    }
+
+    void allBrushesMatchGolden()
+    {
+        // Each brush draws the same wave in its own cell.
+        constexpr int CellWidth = 160;
+        constexpr int CellHeight = 90;
+        m_editor->newDocument(QSize(3 * CellWidth, 3 * CellHeight));
+        m_settings->setTool(Tool::Brush);
+        m_settings->setSize(14);
+        m_settings->setColor(ColorSlot::Primary, QColor(0x3f48cc));
+        for (qsizetype i = 0; i < qsizetype(AllBrushTypes.size()); ++i) {
+            m_settings->setBrushType(AllBrushTypes.at(i));
+            const QPointF origin(int(i % 3) * CellWidth + 20, int(i / 3) * CellHeight + 45);
+            QList<QPointF> wave;
+            for (int step = 0; step <= 40; ++step) {
+                const qreal x = step * 3.0;
+                wave.append(origin + QPointF(x, -22 * std::sin(x / 120 * 2 * std::numbers::pi)));
+            }
+            stroke(wave);
+        }
+        PAINT_COMPARE_GOLDEN(m_editor->document().composite(), QStringLiteral("tools/brushes"),
+                             {.channelTolerance = 2});
+    }
+
+    void texturedBrushesShareThePaperGrain()
+    {
+        // Two crayon strokes over the same pixels give the same texture: the grain is the paper's.
+        m_settings->setTool(Tool::Brush);
+        m_settings->setBrushType(BrushType::Crayon);
+        m_settings->setSize(10);
+        stroke({{5, 10}, {35, 10}});
+        const QImage first = m_editor->document().layer(0).image.copy(10, 6, 20, 8);
+        m_editor->undo();
+        stroke({{35, 10}, {5, 10}});
+        QCOMPARE(m_editor->document().layer(0).image.copy(10, 6, 20, 8), first);
+    }
+
+    void brushStrokesAreReproducible()
+    {
+        m_settings->setTool(Tool::Brush);
+        for (BrushType type : {BrushType::Airbrush, BrushType::OilBrush}) {
+            m_settings->setBrushType(type);
+            stroke({{5, 5}, {20, 15}, {35, 8}});
+            const QImage first = m_editor->document().layer(0).image;
+            m_editor->undo();
+            stroke({{5, 5}, {20, 15}, {35, 8}});
+            QCOMPARE(m_editor->document().layer(0).image, first);
+            m_editor->undo();
+        }
     }
 
     void eraserClearsToTransparency()

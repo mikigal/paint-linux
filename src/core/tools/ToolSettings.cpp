@@ -150,4 +150,30 @@ void ToolSettings::setTransparentSelection(bool enabled)
     }
 }
 
+void ToolSettings::setTextFormat(TextFormat format)
+{
+    format.pointSize = qBound(MinTextSize, format.pointSize, MaxTextSize);
+    if (format != m_textFormat) {
+        m_textFormat = format;
+        Q_EMIT textFormatChanged(format);
+    }
+}
+
+void ToolSettings::setTextAlignment(Qt::Alignment alignment)
+{
+    alignment &= Qt::AlignHorizontal_Mask;
+    if (alignment != m_textAlignment) {
+        m_textAlignment = alignment;
+        Q_EMIT textAlignmentChanged(alignment);
+    }
+}
+
+void ToolSettings::setTextBackground(bool enabled)
+{
+    if (enabled != m_textBackground) {
+        m_textBackground = enabled;
+        Q_EMIT textBackgroundChanged(enabled);
+    }
+}
+
 } // namespace paint

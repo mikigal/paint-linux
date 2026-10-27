@@ -18,8 +18,10 @@
 #include "ribbon/RibbonHost.h"
 #include "tools/SelectionTool.h"
 #include "tools/ShapeTool.h"
+#include "tools/TextTool.h"
 #include "tools/ToolSettings.h"
 #include "ui/Icons.h"
+#include "widgets/TextFormatBar.h"
 #include "widgets/ZoomControls.h"
 
 #include <QAbstractButton>
@@ -234,6 +236,15 @@ void MainWindow::createRibbon()
     bar->addWidget(m_ribbonHost);
     addToolBar(Qt::TopToolBarArea, bar);
     setMinimumWidth(m_ribbonHost->ribbon()->minimumSizeHint().width());
+
+    // The text tool's format bar appears in a row of its own under the ribbon.
+    addToolBarBreak(Qt::TopToolBarArea);
+    m_textBar = new TextFormatBar(m_settings, m_actions, this);
+    addToolBar(Qt::TopToolBarArea, m_textBar);
+    m_textBar->setVisible(m_settings->tool() == Tool::Text);
+    connect(m_settings, &ToolSettings::toolChanged, m_textBar,
+            [this](Tool tool) { m_textBar->setVisible(tool == Tool::Text); });
+    connect(m_textBar, &TextFormatBar::finished, m_canvas, [this] { m_canvas->setFocus(); });
 }
 
 void MainWindow::createStatusBar()
@@ -433,9 +444,10 @@ void MainWindow::connectActions()
         QStringLiteral("action.tool."),  QStringLiteral("action.brush."),
         QStringLiteral("action.shape."), QStringLiteral("action.outline."),
         QStringLiteral("action.fill."),  QStringLiteral("action.shapeSize."),
+        QStringLiteral("action.text."),
     };
     for (QAction *action : m_actions->allActions()) {
-        // Tool, brush, shape and style choices are handled by the registry itself.
+        // Tool, brush, shape, style and text format choices are handled by the registry itself.
         const bool toolChoice = std::ranges::any_of(toolChoicePrefixes, [action](const QString &prefix) {
             return action->objectName().startsWith(prefix);
         });
@@ -479,8 +491,12 @@ void MainWindow::updateSelectionInfo()
     const bool selected = selection->hasSelection();
     m_actions->setSelectionAvailable(selected);
     QSize size = selected ? selection->bounds().size() : QSize();
-    if (const QRectF extent = m_editor->shape()->extent(); !extent.isEmpty()) {
-        // A shape being drawn or edited shows its size instead.
+    QRectF extent = m_editor->shape()->extent();
+    if (extent.isEmpty()) {
+        extent = m_editor->text()->extent();
+    }
+    if (!extent.isEmpty()) {
+        // A shape or text box being drawn or edited shows its size instead.
         size = QSize(int(std::round(extent.width())), int(std::round(extent.height())));
     }
     m_selectionLabel->setText(size.isValid() ? tr("%1 × %2px").arg(size.width()).arg(size.height())
@@ -770,6 +786,8 @@ bool MainWindow::saveFile(const QString &path, const SaveFormat &format)
 
 bool MainWindow::maybeSave()
 {
+    // A shape, text box or moved selection still being edited is part of the work.
+    m_editor->commitTool();
     if (!m_editor->isModified()) {
         return true;
     }
@@ -843,6 +861,8 @@ QJsonObject MainWindow::automationState() const
              : QJsonValue()},
         {QStringLiteral("floating"), m_editor->selection()->isFloating()},
         {QStringLiteral("shapeEditing"), m_editor->shape()->isEditing()},
+        {QStringLiteral("textEditing"), m_editor->text()->isEditing()},
+        {QStringLiteral("text"), m_editor->text()->text()},
         {QStringLiteral("tool"), objectSuffix(m_actions->toolAction(m_settings->tool()))},
         {QStringLiteral("brush"), objectSuffix(m_actions->brushAction(m_settings->brushType()))},
         {QStringLiteral("shape"), objectSuffix(m_actions->shapeAction(m_settings->shapeType()))},

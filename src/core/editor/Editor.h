@@ -17,6 +17,7 @@ namespace paint {
 
 class SelectionTool;
 class ShapeTool;
+class TextTool;
 class ToolSettings;
 
 // The editing session behind a window: the document, its undo history, the file it belongs to
@@ -49,6 +50,7 @@ public:
     // The selection shared by the rectangle and free-form selection tools.
     SelectionTool *selection() const { return m_selection.get(); }
     ShapeTool *shape() const { return m_shape.get(); }
+    TextTool *text() const { return m_text.get(); }
     void selectAll();
     void invertSelection();
     void deleteSelection();
@@ -111,6 +113,7 @@ private:
     QHash<Tool, std::shared_ptr<InteractiveTool>> m_tools;
     std::shared_ptr<SelectionTool> m_selection;
     std::shared_ptr<ShapeTool> m_shape;
+    std::shared_ptr<TextTool> m_text;
     InteractiveTool *m_activeTool = nullptr;
     QString m_filePath;
     qint64 m_fileSize = -1;

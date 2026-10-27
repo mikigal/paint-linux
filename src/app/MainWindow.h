@@ -13,6 +13,7 @@ class QMimeData;
 class RemoteImageLoader;
 class RibbonHost;
 class SidePanel;
+class TextFormatBar;
 
 namespace paint {
 class Editor;
@@ -92,6 +93,7 @@ private:
     RibbonHost *m_ribbonHost = nullptr;
     QLabel *m_cursorLabel = nullptr;
     QLabel *m_selectionLabel = nullptr;
+    TextFormatBar *m_textBar = nullptr;
     QLabel *m_canvasSizeLabel = nullptr;
     QLabel *m_fileSizeLabel = nullptr;
     RemoteImageLoader *m_remoteImages;

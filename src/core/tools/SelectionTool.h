@@ -33,7 +33,7 @@ public:
     void cancel() override;
     void commit() override;
     bool isActive() const override { return m_floating || m_drag != Drag::None; }
-    bool keyPress(int key, Qt::KeyboardModifiers modifiers) override;
+    bool keyPress(const KeyEvent &event) override;
 
     bool hasSelection() const { return m_floating || !m_path.isEmpty(); }
     bool isFloating() const { return m_floating; }

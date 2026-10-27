@@ -42,6 +42,8 @@ add_library(paint_app STATIC
     ui/Icons.h
     ui/Names.cpp
     ui/Names.h
+    widgets/TextFormatBar.cpp
+    widgets/TextFormatBar.h
     widgets/ZoomControls.cpp
     widgets/ZoomControls.h
 )

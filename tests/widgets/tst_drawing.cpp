@@ -3,16 +3,19 @@
 #include "canvas/CanvasView.h"
 #include "editor/Editor.h"
 #include "tools/ShapeTool.h"
+#include "tools/TextTool.h"
 #include "tools/ToolSettings.h"
 
 #include <QAbstractButton>
 #include <QAction>
 #include <QApplication>
+#include <QComboBox>
 #include <QLabel>
 #include <QMessageBox>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <QToolBar>
 
 using namespace paint;
 
@@ -135,6 +138,52 @@ private Q_SLOTS:
         QVERIFY(m_window->editor()->shape()->isEditing());
         // Three corners, framed with room for the 3 px outline.
         QCOMPARE(m_window->editor()->shape()->extent().toAlignedRect(), QRect(99, 99, 103, 83));
+    }
+
+    void unfinishedTextCountsAsUnsavedWork()
+    {
+        action(ActionId::ToolText)->trigger();
+        QTest::mouseClick(m_window->canvas()->viewport(), Qt::LeftButton, {}, toViewport(QPoint(100, 100)));
+        QTest::keyClicks(m_window->canvas(), QStringLiteral("hi"));
+        QVERIFY(!m_window->editor()->history().canUndo());
+        // "New" places the text and asks about it; cancelling keeps it in the image.
+        answerPrompt(QMessageBox::RejectRole);
+        action(ActionId::New)->trigger();
+        QVERIFY(m_window->editor()->history().canUndo());
+        QVERIFY(m_window->isWindowModified());
+    }
+
+    void typingGoesIntoTheTextBoxNotToShortcuts()
+    {
+        auto *bar = m_window->findChild<QToolBar *>(QStringLiteral("textFormatBar"));
+        QVERIFY(bar && bar->isHidden());
+        action(ActionId::ToolText)->trigger();
+        QVERIFY(bar->isVisible());
+        QTest::mouseClick(m_window->canvas()->viewport(), Qt::LeftButton, {}, toViewport(QPoint(100, 100)));
+        QVERIFY(m_window->editor()->text()->isEditing());
+
+        // P, E and T are tool shortcuts; while typing they are letters.
+        QTest::keyClicks(m_window->canvas(), QStringLiteral("pet"));
+        QCOMPARE(settings()->tool(), Tool::Text);
+        QCOMPARE(m_window->editor()->text()->text(), QStringLiteral("pet"));
+        QTest::keyClick(m_window->canvas(), Qt::Key_B, Qt::ControlModifier);
+        QVERIFY(settings()->textFormat().bold);
+        QVERIFY(action(ActionId::TextBold)->isChecked());
+
+        // The size box sets the size and hands the keyboard back to the canvas.
+        auto *size = m_window->findChild<QComboBox *>(QStringLiteral("textFormat.size"));
+        size->setFocus();
+        size->setCurrentText(QStringLiteral("24"));
+        QTest::keyClick(size, Qt::Key_Return);
+        QCOMPARE(settings()->textFormat().pointSize, 24.0);
+        QVERIFY(m_window->canvas()->hasFocus());
+
+        QTest::keyClick(m_window->canvas(), Qt::Key_Escape);
+        QVERIFY(!m_window->editor()->text()->isActive());
+        QCOMPARE(m_window->editor()->history().stack()->count(), 1);
+        action(ActionId::ToolPencil)->trigger();
+        QVERIFY(bar->isHidden());
+        QVERIFY(!action(ActionId::TextBold)->isEnabled());
     }
 
     void saveAndOpenUpdateTitleAndStatusBar()

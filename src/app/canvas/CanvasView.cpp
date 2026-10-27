@@ -5,14 +5,18 @@
 #include "io/MimeImport.h"
 #include "tools/SelectionTool.h"
 #include "tools/ShapeTool.h"
+#include "tools/TextTool.h"
 #include "tools/ToolSettings.h"
 #include "ui/Icons.h"
 
 #include <QContextMenuEvent>
 #include <QDropEvent>
+#include <QGuiApplication>
+#include <QInputMethod>
 #include <QMimeData>
 #include <QPainter>
 #include <QScrollBar>
+#include <QStyleHints>
 #include <QWheelEvent>
 
 #include <algorithm>
@@ -77,8 +81,24 @@ CanvasView::CanvasView(Editor *editor, QWidget *parent)
         const QPointF anchor = documentToViewport(QRectF(point, QSizeF())).topLeft();
         in ? zoomIn(anchor) : zoomOut(anchor);
     });
+    connect(editor, &Editor::selectionStateChanged, this, &CanvasView::restartCaretBlink);
+    connect(&m_caretTimer, &QTimer::timeout, this, [this] {
+        m_caretVisible = !m_caretVisible;
+        if (const std::optional<QRectF> caret = caretRect()) {
+            viewport()->update(caret->toAlignedRect());
+        }
+    });
+    m_sprayTimer.setInterval(40);
+    connect(&m_sprayTimer, &QTimer::timeout, this, [this] {
+        if (m_drawingButton == Qt::NoButton) {
+            m_sprayTimer.stop();
+            return;
+        }
+        m_editor->currentTool()->move(PointerEvent{m_pointer, Qt::NoButton, {}, 1.0 / m_zoom});
+    });
     const ToolSettings &settings = editor->settings();
     connect(&settings, &ToolSettings::toolChanged, this, &CanvasView::updateCursor);
+    connect(&settings, &ToolSettings::toolChanged, this, &CanvasView::restartCaretBlink);
     connect(&settings, &ToolSettings::sizeChanged, this, &CanvasView::updateCursor);
     m_composite = editor->document().composite();
     updateScrollBars();
@@ -384,6 +404,18 @@ void CanvasView::paintSelection(QPainter &painter)
         paintFrame(painter, shape->frameOutline(), shape->handlePositions(1.0 / m_zoom),
                    shape->hasRotateHandle());
     }
+    const TextTool *text = m_editor->text();
+    if (m_editor->settings().tool() == Tool::Text && (text->isEditing() || text->isDefining())) {
+        paintFrame(painter, text->frameOutline(), text->handlePositions(1.0 / m_zoom), true);
+        if (const std::optional<QLineF> caret = text->caret(); caret && m_caretVisible) {
+            // Inverting what is under it keeps the caret visible on any colour.
+            painter.save();
+            painter.setCompositionMode(QPainter::CompositionMode_Difference);
+            painter.setPen(QPen(Qt::white, 1));
+            painter.drawLine(documentToViewportTransform().map(*caret));
+            painter.restore();
+        }
+    }
 }
 
 void CanvasView::paintFrame(QPainter &painter, const QPainterPath &outline, const QList<QPointF> &handles,
@@ -475,7 +507,12 @@ void CanvasView::mousePressEvent(QMouseEvent *event)
     m_drawingButton = event->button();
     PointerEvent pointer = pointerEvent(event, event->button());
     pointer.doubleClick = event->type() == QEvent::MouseButtonDblClick;
+    m_pointer = pointer.position;
     m_editor->currentTool()->press(pointer);
+    const ToolSettings &settings = m_editor->settings();
+    if (settings.tool() == Tool::Brush && settings.brushType() == BrushType::Airbrush) {
+        m_sprayTimer.start();
+    }
 }
 
 void CanvasView::mouseDoubleClickEvent(QMouseEvent *event)
@@ -507,8 +544,14 @@ void CanvasView::mouseMoveEvent(QMouseEvent *event)
         }
         updateCursor();
     }
+    m_pointer = point;
     if (m_drawingButton != Qt::NoButton) {
         m_editor->currentTool()->move(pointerEvent(event, Qt::NoButton));
+    } else if (m_editor->settings().tool() == Tool::Text) {
+        const TextTool *text = m_editor->text();
+        if (const BoxHandle handle = text->hitTest(point, 1.0 / m_zoom); handle != BoxHandle::None) {
+            updateFrameCursor(handle, text->angle());
+        }
     } else if (isSelectionTool(m_editor->settings().tool())) {
         const SelectionTool *selection = m_editor->selection();
         updateFrameCursor(selection->hitTest(point, 1.0 / m_zoom), selection->angle());
@@ -534,13 +577,14 @@ void CanvasView::mouseReleaseEvent(QMouseEvent *event)
         return;
     }
     m_drawingButton = Qt::NoButton;
+    m_sprayTimer.stop();
     m_editor->currentTool()->release(pointerEvent(event, event->button()));
 }
 
 void CanvasView::keyPressEvent(QKeyEvent *event)
 {
     if (m_drawingButton == Qt::NoButton &&
-        m_editor->currentTool()->keyPress(event->key(), event->modifiers())) {
+        m_editor->currentTool()->keyPress(KeyEvent{event->key(), event->modifiers(), event->text()})) {
         event->accept();
         return;
     }
@@ -652,6 +696,9 @@ void CanvasView::updateCursor()
     case Tool::Magnifier:
         viewport()->setCursor(ui::toolCursor(QStringLiteral("magnifier"), QPointF(8, 8)));
         break;
+    case Tool::Text:
+        viewport()->setCursor(Qt::IBeamCursor);
+        break;
     default:
         // The size outline stands in for the pointer, like Paint's circular brush cursor.
         viewport()->setCursor(outlined ? Qt::BlankCursor : Qt::CrossCursor);
@@ -659,5 +706,83 @@ void CanvasView::updateCursor()
     }
     if (m_hover) {
         setHoverPosition(m_hover);
+    }
+}
+
+bool CanvasView::event(QEvent *event)
+{
+    // Keys the tool wants (typing into a text box) go to it instead of triggering shortcuts:
+    // typing "p" must not switch to the pencil.
+    if (event->type() == QEvent::ShortcutOverride && m_drawingButton == Qt::NoButton) {
+        const auto *key = static_cast<QKeyEvent *>(event);
+        if (m_editor->currentTool()->wantsKey(KeyEvent{key->key(), key->modifiers(), key->text()})) {
+            event->accept();
+            return true;
+        }
+    }
+    return QAbstractScrollArea::event(event);
+}
+
+bool CanvasView::isEditingText() const
+{
+    return m_editor->settings().tool() == Tool::Text && m_editor->text()->isEditing();
+}
+
+std::optional<QRectF> CanvasView::caretRect() const
+{
+    if (!isEditingText()) {
+        return std::nullopt;
+    }
+    const std::optional<QLineF> caret = m_editor->text()->caret();
+    if (!caret) {
+        return std::nullopt;
+    }
+    const QLineF line = documentToViewportTransform().map(*caret);
+    return QRectF(line.p1(), line.p2()).normalized().adjusted(-2, -2, 2, 2);
+}
+
+void CanvasView::restartCaretBlink()
+{
+    // The caret shows solid after every change and blinks while nothing happens.
+    m_caretVisible = true;
+    const int flash = QGuiApplication::styleHints()->cursorFlashTime();
+    if (isEditingText() && flash > 0) {
+        m_caretTimer.start(flash / 2);
+    } else {
+        m_caretTimer.stop();
+    }
+    updateTextInput();
+}
+
+void CanvasView::updateTextInput()
+{
+    setAttribute(Qt::WA_InputMethodEnabled, isEditingText());
+    if (hasFocus()) {
+        QGuiApplication::inputMethod()->update(Qt::ImEnabled | Qt::ImCursorRectangle);
+    }
+}
+
+void CanvasView::inputMethodEvent(QInputMethodEvent *event)
+{
+    if (!isEditingText()) {
+        QAbstractScrollArea::inputMethodEvent(event);
+        return;
+    }
+    m_editor->text()->inputMethod(event->commitString(), event->preeditString());
+    event->accept();
+}
+
+QVariant CanvasView::inputMethodQuery(Qt::InputMethodQuery query) const
+{
+    switch (query) {
+    case Qt::ImEnabled:
+        return isEditingText();
+    case Qt::ImCursorRectangle:
+        if (const std::optional<QRectF> caret = caretRect()) {
+            return caret->translated(viewport()->pos());
+        }
+        return QRectF();
+    default:
+        return QAbstractScrollArea::inputMethodQuery(query);
     }
 }

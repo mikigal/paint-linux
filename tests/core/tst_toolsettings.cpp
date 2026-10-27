@@ -76,6 +76,24 @@ private Q_SLOTS:
         QCOMPARE(settings.color(ColorSlot::Primary), QColor(Qt::black));
     }
 
+    void textFormatIsClampedAndEmitsOnlyOnChange()
+    {
+        ToolSettings settings;
+        QSignalSpy format(&settings, &ToolSettings::textFormatChanged);
+        QSignalSpy alignment(&settings, &ToolSettings::textAlignmentChanged);
+        TextFormat big = settings.textFormat();
+        big.pointSize = 9000;
+        settings.setTextFormat(big);
+        QCOMPARE(settings.textFormat().pointSize, ToolSettings::MaxTextSize);
+        settings.setTextFormat(settings.textFormat());
+        QCOMPARE(format.count(), 1);
+        // Only the horizontal part of an alignment is kept.
+        settings.setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        QCOMPARE(settings.textAlignment(), Qt::AlignRight);
+        settings.setTextAlignment(Qt::AlignRight);
+        QCOMPARE(alignment.count(), 1);
+    }
+
     void customColorsFillThenShift()
     {
         ToolSettings settings;

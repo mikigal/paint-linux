@@ -145,15 +145,15 @@ private Q_SLOTS:
     void keysNudgeCommitAndDelete()
     {
         drag({5, 5}, {15, 15});
-        QVERIFY(m_editor->currentTool()->keyPress(Qt::Key_Right, {}));
+        QVERIFY(m_editor->currentTool()->keyPress({Qt::Key_Right}));
         QCOMPARE(shape()->extent(), QRectF(6, 5, 11, 11));
-        QVERIFY(m_editor->currentTool()->keyPress(Qt::Key_Delete, {}));
+        QVERIFY(m_editor->currentTool()->keyPress({Qt::Key_Delete}));
         QVERIFY(!shape()->isActive());
         QCOMPARE(pixel({6, 5}).alpha(), 0);
         QVERIFY(!m_editor->history().canUndo());
 
         drag({5, 5}, {15, 15});
-        QVERIFY(m_editor->currentTool()->keyPress(Qt::Key_Return, {}));
+        QVERIFY(m_editor->currentTool()->keyPress({Qt::Key_Return}));
         QVERIFY(!shape()->isActive());
         QVERIFY(m_editor->history().canUndo());
     }

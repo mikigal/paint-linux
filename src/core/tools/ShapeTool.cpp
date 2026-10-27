@@ -516,8 +516,9 @@ void ShapeTool::reset()
     m_angle = 0;
 }
 
-bool ShapeTool::keyPress(int key, Qt::KeyboardModifiers)
+bool ShapeTool::keyPress(const KeyEvent &event)
 {
+    const int key = event.key;
     if (m_drag != Drag::None) {
         return false;
     }

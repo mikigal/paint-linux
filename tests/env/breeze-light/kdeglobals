@@ -160,6 +160,7 @@ toolBarFont=Noto Sans,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
 widgetStyle=Breeze
 SingleClick=false
 AnimationDurationFactor=0
+CursorBlinkRate=0
 
 [Icons]
 Theme=breeze

@@ -31,7 +31,7 @@ public:
     void release(const PointerEvent &event) override;
     void cancel() override;
     void commit() override;
-    bool keyPress(int key, Qt::KeyboardModifiers modifiers) override;
+    bool keyPress(const KeyEvent &event) override;
     bool isActive() const override { return m_mode != Mode::Idle; }
 
     // The shape is drawn and shows its frame and handles.

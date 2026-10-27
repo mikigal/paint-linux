@@ -93,6 +93,15 @@ enum class ActionId {
     SizeIncrease,
     SizeDecrease,
     EditColors,
+    // Text format bar
+    TextBold,
+    TextItalic,
+    TextUnderline,
+    TextStrikethrough,
+    TextAlignLeft,
+    TextAlignCenter,
+    TextAlignRight,
+    TextBackground,
     // Help
     About,
     AboutQt,
@@ -127,6 +136,7 @@ private:
     void createToolActions(QWidget *window);
     void connectSettings();
     void syncTool(paint::Tool tool);
+    void syncTextFormat();
 
     paint::ToolSettings *m_settings;
     QHash<ActionId, QAction *> m_actions;
