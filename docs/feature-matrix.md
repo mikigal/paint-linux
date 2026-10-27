@@ -119,10 +119,11 @@ a Linux-native form).
 
 | Feature | Paint | Paint for Linux | M | Status |
 |---|---|---|---|---|
-| Line, Curve, Oval, Rectangle, Rounded rectangle, Polygon, Triangle, Right triangle, Diamond, Pentagon, Hexagon, 4 arrows, 4/5/6-point stars, 3 callouts, Heart, Lightning | 23 shapes *(verify names)* | Same | M5 | todo |
-| Outline / Fill styles | None, Solid, Crayon, Marker, Oil, Natural pencil, Watercolor | Same | M5 | todo |
-| Editable until committed | Handles + rotate handle | Same | M5 | todo |
-| Shift constraint | Squares/circles, 45° lines | Same | M5 | todo |
+| Line, Curve, Oval, Rectangle, Rounded rectangle, Polygon, Triangle, Right triangle, Diamond, Pentagon, Hexagon, 4 arrows, 4/5/6-point stars, 3 callouts, Heart, Lightning | 23 shapes *(verify names)* | Same; the outline is colour 1 and the fill colour 2 (swapped when drawn with the right button); the outline grows inside the dragged box | M5 | done |
+| Curve and polygon | Curve: line, then two bends; polygon: click corners | Same; a polygon closes on its first corner, a double click or Enter | M5 | done |
+| Outline / Fill styles | None, Solid, Crayon, Marker, Oil, Natural pencil, Watercolor | Same, as deterministic textures that move with the shape; the brush engines replace them in M6 if they differ | M5 | done |
+| Editable until committed | Handles + rotate handle | Same: move, resize and rotate with the frame, live restyling from colours, size and styles; arrow keys nudge, Enter/Esc place, Delete discards, undo drops the shape; lines get end handles | M5 | done |
+| Shift constraint | Squares/circles, 45° lines | Same, also for resizing corners and rotating in 15° steps | M5 | done |
 
 ## Text tool
 

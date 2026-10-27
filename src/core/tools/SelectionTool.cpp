@@ -8,31 +8,16 @@
 #include <QPainter>
 
 #include <cmath>
-#include <numbers>
 
 namespace paint {
 
 namespace {
-
-QTransform rotationAround(QPointF centre, qreal angle)
-{
-    QTransform transform;
-    transform.translate(centre.x(), centre.y());
-    transform.rotate(angle);
-    transform.translate(-centre.x(), -centre.y());
-    return transform;
-}
 
 QPainterPath rectPath(const QRectF &rect)
 {
     QPainterPath path;
     path.addRect(rect);
     return path;
-}
-
-qreal degreesTowards(QPointF centre, QPointF point)
-{
-    return std::atan2(point.y() - centre.y(), point.x() - centre.x()) * 180 / std::numbers::pi;
 }
 
 // Makes everything outside `shape` transparent (fillPath only touches pixels inside the path,
@@ -106,44 +91,15 @@ QList<QPointF> SelectionTool::handlePositions(qreal screenPixel) const
     if (!hasSelection()) {
         return {};
     }
-    const QRectF box = frame();
-    const QTransform rotation = m_floating ? rotationAround(box.center(), m_angle) : QTransform();
-    const qreal midX = box.center().x();
-    const qreal midY = box.center().y();
-    // Same order as SelectionHandle, from TopLeft clockwise, then the rotate handle.
-    return rotation.map(QPolygonF{
-        box.topLeft(),
-        {midX, box.top()},
-        box.topRight(),
-        {box.right(), midY},
-        box.bottomRight(),
-        {midX, box.bottom()},
-        box.bottomLeft(),
-        {box.left(), midY},
-        {midX, box.top() - RotateHandleOffset * screenPixel},
-    });
+    return box::handles(frame(), m_floating ? m_angle : 0, screenPixel);
 }
 
 SelectionHandle SelectionTool::hitTest(QPointF position, qreal screenPixel) const
 {
-    const QList<QPointF> handles = handlePositions(screenPixel);
-    qsizetype nearest = -1;
-    qreal nearestDistance = 0;
-    for (qsizetype i = 0; i < handles.size(); ++i) {
-        const qreal distance = QLineF(position, handles.at(i)).length();
-        if (nearest < 0 || distance < nearestDistance) {
-            nearest = i;
-            nearestDistance = distance;
-        }
+    if (!hasSelection()) {
+        return SelectionHandle::None;
     }
-    const bool inside = hasSelection() && outline().contains(position);
-    // Inside small selections the handles would cover everything, so there they only win when
-    // the pointer is right on them.
-    const qreal reach = (inside ? HandleRadius - 2 : HandleRadius + 2) * screenPixel;
-    if (nearest >= 0 && nearestDistance <= reach) {
-        return static_cast<SelectionHandle>(int(SelectionHandle::TopLeft) + int(nearest));
-    }
-    return inside ? SelectionHandle::Inside : SelectionHandle::None;
+    return box::hitTest(handlePositions(screenPixel), outline(), position, screenPixel);
 }
 
 void SelectionTool::press(const PointerEvent &event)
@@ -251,79 +207,14 @@ void SelectionTool::defineTo(QPointF position, Qt::KeyboardModifiers modifiers)
 
 void SelectionTool::resizeTo(QPointF position, Qt::KeyboardModifiers modifiers)
 {
-    // Work in the selection's own (unrotated) frame, then keep the opposite handle in place.
-    const QPointF centre = m_startTarget.center();
-    const QPointF local = rotationAround(centre, m_startAngle).inverted().map(position);
-    QRectF box = m_startTarget;
-    QPointF anchor;
-    switch (m_handle) {
-    case SelectionHandle::TopLeft:
-        box.setTopLeft(local);
-        anchor = m_startTarget.bottomRight();
-        break;
-    case SelectionHandle::Top:
-        box.setTop(local.y());
-        anchor = QPointF(centre.x(), m_startTarget.bottom());
-        break;
-    case SelectionHandle::TopRight:
-        box.setTopRight(local);
-        anchor = m_startTarget.bottomLeft();
-        break;
-    case SelectionHandle::Right:
-        box.setRight(local.x());
-        anchor = QPointF(m_startTarget.left(), centre.y());
-        break;
-    case SelectionHandle::BottomRight:
-        box.setBottomRight(local);
-        anchor = m_startTarget.topLeft();
-        break;
-    case SelectionHandle::Bottom:
-        box.setBottom(local.y());
-        anchor = QPointF(centre.x(), m_startTarget.top());
-        break;
-    case SelectionHandle::BottomLeft:
-        box.setBottomLeft(local);
-        anchor = m_startTarget.topRight();
-        break;
-    case SelectionHandle::Left:
-        box.setLeft(local.x());
-        anchor = QPointF(m_startTarget.right(), centre.y());
-        break;
-    default:
-        return;
-    }
-    const bool corner = m_handle == SelectionHandle::TopLeft || m_handle == SelectionHandle::TopRight ||
-                        m_handle == SelectionHandle::BottomRight || m_handle == SelectionHandle::BottomLeft;
-    if (corner && (modifiers & Qt::ShiftModifier)) {
-        // Shift keeps the proportions: scale both sides by the larger change, away from the anchor.
-        const qreal scale =
-            std::max(box.width() / m_startTarget.width(), box.height() / m_startTarget.height());
-        const QSizeF size = m_startTarget.size() * scale;
-        box = QRectF(QPointF(anchor.x() < box.center().x() ? anchor.x() : anchor.x() - size.width(),
-                             anchor.y() < box.center().y() ? anchor.y() : anchor.y() - size.height()),
-                     size);
-    }
-    box = box.normalized();
-    box.setWidth(std::max<qreal>(1, box.width()));
-    box.setHeight(std::max<qreal>(1, box.height()));
-    if (m_angle != 0) {
-        const QPointF before = rotationAround(centre, m_angle).map(anchor);
-        const QPointF after = rotationAround(box.center(), m_angle).map(anchor);
-        box.translate(before - after);
-    }
-    m_target = box;
+    m_target = box::resized(m_startTarget, m_angle, m_handle, position, modifiers & Qt::ShiftModifier);
     render();
 }
 
 void SelectionTool::rotateTo(QPointF position, Qt::KeyboardModifiers modifiers)
 {
-    const QPointF centre = m_startTarget.center();
-    qreal angle = m_startAngle + degreesTowards(centre, position) - degreesTowards(centre, m_pressPosition);
-    if (modifiers & Qt::ShiftModifier) {
-        angle = std::round(angle / 15) * 15;
-    }
-    angle = std::remainder(angle, 360.0);
-    m_angle = std::abs(angle) < 1e-9 ? 0 : angle;
+    m_angle = box::rotated(m_startTarget.center(), m_startAngle, m_pressPosition, position,
+                           modifiers & Qt::ShiftModifier);
     render();
 }
 
@@ -398,9 +289,11 @@ void SelectionTool::render()
 
     QPainter painter(&layer);
     // Put back what the content covered last time, then draw it at its new place.
-    painter.setCompositionMode(QPainter::CompositionMode_Source);
-    painter.drawImage(m_shown.topLeft(), m_base, m_shown);
-    painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
+    if (!m_shown.isEmpty()) {
+        painter.setCompositionMode(QPainter::CompositionMode_Source);
+        painter.drawImage(m_shown.topLeft(), m_base, m_shown);
+        painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
+    }
     painter.setRenderHint(QPainter::SmoothPixmapTransform, transformed);
     painter.setTransform(transform);
     const ToolSettings &settings = m_context.settings();

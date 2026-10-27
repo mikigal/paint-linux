@@ -1,5 +1,6 @@
 #pragma once
 
+#include "tools/BoxGeometry.h"
 #include "tools/Tool.h"
 
 #include <QAbstractScrollArea>
@@ -58,6 +59,7 @@ protected:
     void scrollContentsBy(int dx, int dy) override;
     void wheelEvent(QWheelEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
@@ -72,7 +74,10 @@ private:
     void handlePixelsChanged(const QRect &area);
     void handleDocumentReplaced();
     void handleDocumentRestructured();
+    // The selection's outline or an edited shape's frame, with their handles.
     void paintSelection(QPainter &painter);
+    void paintFrame(QPainter &painter, const QPainterPath &outline, const QList<QPointF> &handles,
+                    bool rotateHandle);
     QTransform documentToViewportTransform() const;
     QSizeF scaledCanvasSize() const;
     void updateScrollBars();
@@ -82,7 +87,7 @@ private:
     std::optional<QRectF> brushOutline() const;
     void setHoverPosition(std::optional<QPointF> position);
     void updateCursor();
-    void updateSelectionCursor(QPointF documentPosition);
+    void updateFrameCursor(paint::BoxHandle handle, qreal angle);
     // The canvas resize handle under a viewport point (index into handleRects()), or -1.
     int canvasHandleAt(QPointF viewportPoint) const;
     QRect canvasResizeTarget(QPointF viewportPoint) const;

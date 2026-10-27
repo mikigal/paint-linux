@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ops/ImageOps.h"
+#include "tools/BoxGeometry.h"
 #include "tools/Tool.h"
 
 #include <QImage>
@@ -14,19 +15,7 @@
 
 namespace paint {
 
-enum class SelectionHandle {
-    None,
-    Inside,
-    TopLeft,
-    Top,
-    TopRight,
-    Right,
-    BottomRight,
-    Bottom,
-    BottomLeft,
-    Left,
-    Rotate,
-};
+using SelectionHandle = BoxHandle;
 
 // Paint's rectangle and free-form selection. A selection is an outline on the active layer;
 // dragging it, its handles or its rotate handle lifts the pixels into floating content that is
@@ -36,10 +25,6 @@ enum class SelectionHandle {
 class SelectionTool : public InteractiveTool
 {
 public:
-    // How far above the top edge the rotate handle sits, in screen pixels.
-    static constexpr qreal RotateHandleOffset = 24;
-    static constexpr qreal HandleRadius = 5;
-
     explicit SelectionTool(ToolContext &context);
 
     void press(const PointerEvent &event) override;

@@ -17,6 +17,7 @@
 #include "ribbon/Ribbon.h"
 #include "ribbon/RibbonHost.h"
 #include "tools/SelectionTool.h"
+#include "tools/ShapeTool.h"
 #include "tools/ToolSettings.h"
 #include "ui/Icons.h"
 #include "widgets/ZoomControls.h"
@@ -44,6 +45,8 @@
 #include <QStatusBar>
 #include <QTimer>
 #include <QToolBar>
+
+#include <cmath>
 
 using namespace paint;
 
@@ -475,9 +478,13 @@ void MainWindow::updateSelectionInfo()
     const SelectionTool *selection = m_editor->selection();
     const bool selected = selection->hasSelection();
     m_actions->setSelectionAvailable(selected);
-    const QRect bounds = selection->bounds();
-    m_selectionLabel->setText(selected ? tr("%1 × %2px").arg(bounds.width()).arg(bounds.height())
-                                       : QString());
+    QSize size = selected ? selection->bounds().size() : QSize();
+    if (const QRectF extent = m_editor->shape()->extent(); !extent.isEmpty()) {
+        // A shape being drawn or edited shows its size instead.
+        size = QSize(int(std::round(extent.width())), int(std::round(extent.height())));
+    }
+    m_selectionLabel->setText(size.isValid() ? tr("%1 × %2px").arg(size.width()).arg(size.height())
+                                             : QString());
 }
 
 void MainWindow::updatePasteAvailability()
@@ -835,6 +842,7 @@ QJsonObject MainWindow::automationState() const
                                      m_editor->selection()->bounds().height()})
              : QJsonValue()},
         {QStringLiteral("floating"), m_editor->selection()->isFloating()},
+        {QStringLiteral("shapeEditing"), m_editor->shape()->isEditing()},
         {QStringLiteral("tool"), objectSuffix(m_actions->toolAction(m_settings->tool()))},
         {QStringLiteral("brush"), objectSuffix(m_actions->brushAction(m_settings->brushType()))},
         {QStringLiteral("shape"), objectSuffix(m_actions->shapeAction(m_settings->shapeType()))},

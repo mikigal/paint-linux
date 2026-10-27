@@ -17,6 +17,8 @@ struct PointerEvent
     Qt::KeyboardModifiers modifiers;
     // Size of one screen pixel in document units (1 / zoom), for zoom-independent hit testing.
     qreal screenPixel = 1.0;
+    // The press is the second click of a double click.
+    bool doubleClick = false;
 };
 
 // What a tool may touch. Implemented by Editor; tests can provide their own.
@@ -32,7 +34,7 @@ public:
     virtual void documentChanged(const QRect &area) = 0;
     // The magnifier asks the view to zoom around a document point.
     virtual void requestZoom(QPointF documentPosition, bool zoomIn) = 0;
-    // The selection (outline, handles or floating state) changed.
+    // The selection or an edited shape changed (outline, frame, handles or floating state).
     virtual void selectionChanged() {}
 };
 

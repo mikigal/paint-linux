@@ -141,6 +141,42 @@ SCENARIOS: list[Scenario] = [
     Scenario("drop-image-light", steps=[
         ("drop", {"relativeTo": "canvasView.viewport", "x": 300, "y": 200,
                   "imagePath": "tests/golden/document/composite-two-layers.png"}), AWAY]),
+    # Shapes: outline in colour 1, fill in colour 2; the last shape drawn stays editable.
+    Scenario("shape-editing-light", steps=[
+        invoke("shape.rectangle"), slider("size", 5), click("ribbon.palette.3"),
+        ("drag", {"relativeTo": "canvasView.viewport", "from": [200, 150], "to": [500, 350]}), AWAY]),
+    Scenario("shape-styles-light", steps=[
+        click("ribbon.color2"), click("ribbon.palette.14"), click("ribbon.color1"), click("ribbon.palette.8"),
+        invoke("shape.oval"), slider("size", 12), invoke("outline.crayon"), invoke("fill.watercolor"),
+        ("drag", {"relativeTo": "canvasView.viewport", "from": [60, 60], "to": [320, 260]}),
+        invoke("shape.heart"), invoke("outline.marker"), invoke("fill.oil"),
+        ("drag", {"relativeTo": "canvasView.viewport", "from": [380, 60], "to": [620, 280]}),
+        invoke("shape.fivePointStar"), invoke("outline.naturalPencil"), invoke("fill.solidColor"),
+        ("drag", {"relativeTo": "canvasView.viewport", "from": [680, 50], "to": [940, 300]}),
+        invoke("shape.cloudCallout"), invoke("outline.oil"), invoke("fill.crayon"),
+        ("drag", {"relativeTo": "canvasView.viewport", "from": [100, 340], "to": [460, 580]}),
+        invoke("shape.lightning"), invoke("outline.watercolor"), invoke("fill.marker"),
+        ("drag", {"relativeTo": "canvasView.viewport", "from": [560, 340], "to": [760, 590]}),
+        invoke("tool.pencil"), AWAY]),
+    Scenario("shape-rotated-dark", theme="dark", steps=[
+        invoke("shape.rightArrow"), click("ribbon.color2"), click("ribbon.palette.5"), click("ribbon.color1"),
+        click("ribbon.palette.6"), invoke("fill.solidColor"),
+        ("drag", {"relativeTo": "canvasView.viewport", "from": [250, 200], "to": [550, 350]}),
+        # The rotate handle sits 24 px above the middle of the top edge.
+        ("drag", {"relativeTo": "canvasView.viewport", "from": [400, 176], "to": [560, 230], "modifiers": "shift"}),
+        AWAY]),
+    Scenario("shape-line-light", steps=[
+        invoke("shape.line"), slider("size", 8), click("ribbon.palette.4"),
+        ("drag", {"relativeTo": "canvasView.viewport", "from": [150, 400], "to": [600, 150]}), AWAY]),
+    Scenario("shape-polygon-curve-light", steps=[
+        invoke("shape.polygon"), slider("size", 4), click("ribbon.palette.8"),
+        ("drag", {"relativeTo": "canvasView.viewport", "from": [150, 300], "to": [300, 120]}),
+        ("click", {"relativeTo": "canvasView.viewport", "x": 420, "y": 330}),
+        ("click", {"relativeTo": "canvasView.viewport", "x": 150, "y": 300}),
+        invoke("shape.curve"),
+        ("drag", {"relativeTo": "canvasView.viewport", "from": [600, 350], "to": [950, 350]}),
+        ("drag", {"relativeTo": "canvasView.viewport", "from": [700, 350], "to": [700, 150]}),
+        ("drag", {"relativeTo": "canvasView.viewport", "from": [880, 350], "to": [880, 480]}), AWAY]),
     # Image commands
     Scenario("image-rotated-right-light", steps=[*PICTURE, invoke("image.rotateRight"), AWAY]),
     Scenario("image-inverted-dark", theme="dark", steps=[*PICTURE, invoke("image.invertColors"), AWAY]),

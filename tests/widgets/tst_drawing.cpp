@@ -2,6 +2,7 @@
 #include "MainWindow.h"
 #include "canvas/CanvasView.h"
 #include "editor/Editor.h"
+#include "tools/ShapeTool.h"
 #include "tools/ToolSettings.h"
 
 #include <QAbstractButton>
@@ -86,6 +87,54 @@ private Q_SLOTS:
         settings()->setTool(Tool::Magnifier);
         QTest::mouseClick(m_window->canvas()->viewport(), Qt::LeftButton, {}, toViewport(QPoint(200, 150)));
         QCOMPARE(m_window->canvas()->zoom(), 2.0);
+    }
+
+    void shapesStayEditableWithFrameCursors()
+    {
+        settings()->setTool(Tool::Shape);
+        settings()->setShapeType(ShapeType::Rectangle);
+        settings()->setSize(1);
+        drag({QPoint(100, 100), QPoint(150, 140)});
+        const ShapeTool *shape = m_window->editor()->shape();
+        QVERIFY(shape->isEditing());
+        QCOMPARE(pixel(100, 100), QColor(Qt::black));
+        QCOMPARE(m_window->findChild<QLabel *>(QStringLiteral("status.selection.text"))->text(),
+                 QStringLiteral("51 × 41px"));
+
+        QWidget *viewport = m_window->canvas()->viewport();
+        QTest::mouseMove(viewport, toViewport(QPoint(151, 141)));
+        QCOMPARE(viewport->cursor().shape(), Qt::SizeFDiagCursor);
+        QTest::mouseMove(viewport, toViewport(QPoint(125, 120)));
+        QCOMPARE(viewport->cursor().shape(), Qt::SizeAllCursor);
+        QTest::mouseMove(viewport, toViewport(QPoint(300, 300)));
+        QCOMPARE(viewport->cursor().shape(), Qt::CrossCursor);
+
+        // Dragging the frame moves the shape; clicking elsewhere places it.
+        drag({QPoint(125, 120), QPoint(135, 130)});
+        QCOMPARE(pixel(100, 100), QColor(Qt::white));
+        QCOMPARE(pixel(110, 110), QColor(Qt::black));
+        QVERIFY(!m_window->editor()->history().canUndo());
+        drag({QPoint(300, 300), QPoint(300, 300)});
+        QVERIFY(!shape->isActive());
+        QCOMPARE(m_window->editor()->history().stack()->count(), 1);
+        QVERIFY(m_window->findChild<QLabel *>(QStringLiteral("status.selection.text"))->text().isEmpty());
+    }
+
+    void polygonClosesOnDoubleClick()
+    {
+        settings()->setTool(Tool::Shape);
+        settings()->setShapeType(ShapeType::Polygon);
+        drag({QPoint(100, 100), QPoint(200, 100)});
+        // A real double click: a click, then the double-click press and its release.
+        QWidget *viewport = m_window->canvas()->viewport();
+        const QPoint corner = toViewport(QPoint(200, 180));
+        QTest::mouseClick(viewport, Qt::LeftButton, {}, corner);
+        QVERIFY(!m_window->editor()->shape()->isEditing());
+        QTest::mouseDClick(viewport, Qt::LeftButton, {}, corner);
+        QTest::mouseRelease(viewport, Qt::LeftButton, {}, corner);
+        QVERIFY(m_window->editor()->shape()->isEditing());
+        // Three corners, framed with room for the 3 px outline.
+        QCOMPARE(m_window->editor()->shape()->extent().toAlignedRect(), QRect(99, 99, 103, 83));
     }
 
     void saveAndOpenUpdateTitleAndStatusBar()

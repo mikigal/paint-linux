@@ -17,10 +17,16 @@ add_library(paint_core STATIC
     ops/ImageOps.h
     shapes/ShapeGeometry.cpp
     shapes/ShapeGeometry.h
+    shapes/ShapeStyles.cpp
+    shapes/ShapeStyles.h
+    tools/BoxGeometry.cpp
+    tools/BoxGeometry.h
     tools/ClickTools.cpp
     tools/ClickTools.h
     tools/SelectionTool.cpp
     tools/SelectionTool.h
+    tools/ShapeTool.cpp
+    tools/ShapeTool.h
     tools/StrokeTools.cpp
     tools/StrokeTools.h
     tools/Tool.h

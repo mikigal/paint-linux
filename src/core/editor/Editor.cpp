@@ -2,6 +2,7 @@
 
 #include "tools/ClickTools.h"
 #include "tools/SelectionTool.h"
+#include "tools/ShapeTool.h"
 #include "tools/StrokeTools.h"
 #include "tools/ToolSettings.h"
 
@@ -27,10 +28,9 @@ Editor::Editor(ToolSettings *settings, QObject *parent)
     m_selection = std::make_shared<SelectionTool>(*this);
     m_tools.insert(Tool::RectangleSelect, m_selection);
     m_tools.insert(Tool::FreeformSelect, m_selection);
-    const auto inert = std::make_shared<InertTool>(*this);
-    for (Tool tool : {Tool::Text, Tool::Shape}) {
-        m_tools.insert(tool, inert);
-    }
+    m_shape = std::make_shared<ShapeTool>(*this);
+    m_tools.insert(Tool::Shape, m_shape);
+    m_tools.insert(Tool::Text, std::make_shared<InertTool>(*this));
     m_activeTool = currentTool();
 
     connect(settings, &ToolSettings::transparentSelectionChanged, this, [this] { m_selection->refresh(); });
@@ -38,7 +38,13 @@ Editor::Editor(ToolSettings *settings, QObject *parent)
         if (slot == ColorSlot::Secondary) {
             m_selection->refresh();
         }
+        m_shape->refresh();
     });
+    // A shape being edited follows the size and style settings; picking another shape places it.
+    connect(settings, &ToolSettings::sizeChanged, this, [this] { m_shape->refresh(); });
+    connect(settings, &ToolSettings::outlineStyleChanged, this, [this] { m_shape->refresh(); });
+    connect(settings, &ToolSettings::fillStyleChanged, this, [this] { m_shape->refresh(); });
+    connect(settings, &ToolSettings::shapeTypeChanged, this, [this] { m_shape->commit(); });
     connect(&m_history, &History::documentChanged, this, &Editor::pixelsChanged);
     connect(&m_history, &History::documentRestructured, this, &Editor::documentRestructured);
     connect(m_history.stack(), &QUndoStack::cleanChanged, this,

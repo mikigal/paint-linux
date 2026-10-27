@@ -4,6 +4,7 @@
 #include "editor/Editor.h"
 #include "io/MimeImport.h"
 #include "tools/SelectionTool.h"
+#include "tools/ShapeTool.h"
 #include "tools/ToolSettings.h"
 #include "ui/Icons.h"
 
@@ -373,38 +374,51 @@ void CanvasView::paintSelection(QPainter &painter)
 {
     const SelectionTool *selection = m_editor->selection();
     // Paint hides the outline while the selection is being moved, resized or rotated.
-    if (!selection->hasSelection() || selection->isTransforming()) {
-        return;
+    if (selection->hasSelection() && !selection->isTransforming()) {
+        paintFrame(painter, selection->outline(),
+                   selection->isDefining() ? QList<QPointF>() : selection->handlePositions(1.0 / m_zoom),
+                   true);
     }
+    const ShapeTool *shape = m_editor->shape();
+    if (m_editor->settings().tool() == Tool::Shape && shape->isEditing()) {
+        paintFrame(painter, shape->frameOutline(), shape->handlePositions(1.0 / m_zoom),
+                   shape->hasRotateHandle());
+    }
+}
+
+void CanvasView::paintFrame(QPainter &painter, const QPainterPath &outline, const QList<QPointF> &handles,
+                            bool rotateHandle)
+{
     const QTransform toViewport = documentToViewportTransform();
-    const QPainterPath outline = toViewport.map(selection->outline());
     painter.save();
     painter.setRenderHint(QPainter::Antialiasing, false);
     painter.setBrush(Qt::NoBrush);
-    painter.setPen(QPen(Qt::white, 1));
-    painter.drawPath(outline);
-    QPen dashes(QColor(0x1a, 0x1a, 0x1a), 1, Qt::CustomDashLine);
-    dashes.setDashPattern({4, 4});
-    painter.setPen(dashes);
-    painter.drawPath(outline);
-
-    if (!selection->isDefining()) {
-        const QList<QPointF> handles = selection->handlePositions(1.0 / m_zoom);
+    if (!outline.isEmpty()) {
+        const QPainterPath mapped = toViewport.map(outline);
+        painter.setPen(QPen(Qt::white, 1));
+        painter.drawPath(mapped);
+        QPen dashes(QColor(0x1a, 0x1a, 0x1a), 1, Qt::CustomDashLine);
+        dashes.setDashPattern({4, 4});
+        painter.setPen(dashes);
+        painter.drawPath(mapped);
+    }
+    if (!handles.isEmpty()) {
         QList<QPointF> points;
         for (const QPointF &handle : handles) {
             points.append(toViewport.map(handle));
         }
         painter.setRenderHint(QPainter::Antialiasing, true);
-        QColor line = palette().color(QPalette::Highlight);
-        // The rotate handle hangs above the top edge on a short stem.
-        painter.setPen(QPen(line, 1));
-        painter.drawLine(points.at(1), points.last());
+        painter.setPen(QPen(palette().color(QPalette::Highlight), 1));
         painter.setBrush(Qt::white);
-        const qreal half = SelectionTool::HandleRadius - 1;
-        for (qsizetype i = 0; i + 1 < points.size(); ++i) {
-            painter.drawRect(QRectF(points.at(i) - QPointF(half, half), QSizeF(2 * half, 2 * half)));
+        const qreal half = box::HandleRadius - 1;
+        if (rotateHandle) {
+            // The rotate handle hangs above the top edge on a short stem.
+            painter.drawLine(points.at(1), points.last());
+            painter.drawEllipse(points.takeLast(), half + 1, half + 1);
         }
-        painter.drawEllipse(points.last(), half + 1, half + 1);
+        for (const QPointF &point : std::as_const(points)) {
+            painter.drawRect(QRectF(point - QPointF(half, half), QSizeF(2 * half, 2 * half)));
+        }
     }
     painter.restore();
 }
@@ -459,7 +473,15 @@ void CanvasView::mousePressEvent(QMouseEvent *event)
         return;
     }
     m_drawingButton = event->button();
-    m_editor->currentTool()->press(pointerEvent(event, event->button()));
+    PointerEvent pointer = pointerEvent(event, event->button());
+    pointer.doubleClick = event->type() == QEvent::MouseButtonDblClick;
+    m_editor->currentTool()->press(pointer);
+}
+
+void CanvasView::mouseDoubleClickEvent(QMouseEvent *event)
+{
+    // Tools see the second click as a press marked as a double click (it closes a polygon).
+    mousePressEvent(event);
 }
 
 void CanvasView::mouseMoveEvent(QMouseEvent *event)
@@ -488,7 +510,11 @@ void CanvasView::mouseMoveEvent(QMouseEvent *event)
     if (m_drawingButton != Qt::NoButton) {
         m_editor->currentTool()->move(pointerEvent(event, Qt::NoButton));
     } else if (isSelectionTool(m_editor->settings().tool())) {
-        updateSelectionCursor(point);
+        const SelectionTool *selection = m_editor->selection();
+        updateFrameCursor(selection->hitTest(point, 1.0 / m_zoom), selection->angle());
+    } else if (m_editor->settings().tool() == Tool::Shape) {
+        const ShapeTool *shape = m_editor->shape();
+        updateFrameCursor(shape->hitTest(point, 1.0 / m_zoom), shape->angle());
     }
 }
 
@@ -567,26 +593,24 @@ void CanvasView::changeEvent(QEvent *event)
     }
 }
 
-void CanvasView::updateSelectionCursor(QPointF documentPosition)
+void CanvasView::updateFrameCursor(BoxHandle handle, qreal angle)
 {
-    const SelectionTool *selection = m_editor->selection();
-    const SelectionHandle handle = selection->hitTest(documentPosition, 1.0 / m_zoom);
     switch (handle) {
-    case SelectionHandle::None:
+    case BoxHandle::None:
         viewport()->setCursor(Qt::CrossCursor);
         return;
-    case SelectionHandle::Inside:
+    case BoxHandle::Inside:
         viewport()->setCursor(Qt::SizeAllCursor);
         return;
-    case SelectionHandle::Rotate:
+    case BoxHandle::Rotate:
         viewport()->setCursor(ui::toolCursor(QStringLiteral("rotate-180"), QPointF(10, 10)));
         return;
     default:
         break;
     }
-    // Resize cursors follow the handle's direction, turned with the selection.
-    const int index = int(handle) - int(SelectionHandle::TopLeft); // 0..7 clockwise from the top-left
-    const qreal direction = std::fmod(135 - index * 45 + 360 - selection->angle() + 720, 180.0);
+    // Resize cursors follow the handle's direction, turned with the frame.
+    const int index = int(handle) - int(BoxHandle::TopLeft); // 0..7 clockwise from the top-left
+    const qreal direction = std::fmod(135 - index * 45 + 360 - angle + 720, 180.0);
     static const Qt::CursorShape shapes[] = {Qt::SizeHorCursor, Qt::SizeBDiagCursor, Qt::SizeVerCursor,
                                              Qt::SizeFDiagCursor};
     viewport()->setCursor(shapes[int(std::round(direction / 45)) % 4]);
