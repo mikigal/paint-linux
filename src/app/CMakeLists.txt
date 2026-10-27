@@ -10,6 +10,14 @@ add_library(paint_app STATIC
     canvas/CanvasView.h
     canvas/SidePanel.cpp
     canvas/SidePanel.h
+    dialogs/CustomRotateDialog.cpp
+    dialogs/CustomRotateDialog.h
+    dialogs/EditColorsDialog.cpp
+    dialogs/EditColorsDialog.h
+    dialogs/ImagePropertiesDialog.cpp
+    dialogs/ImagePropertiesDialog.h
+    dialogs/ResizeSkewDialog.cpp
+    dialogs/ResizeSkewDialog.h
     panels/LayersDock.cpp
     panels/LayersDock.h
     platform/RemoteImageLoader.cpp

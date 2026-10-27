@@ -18,6 +18,8 @@ class Document
 {
 public:
     static constexpr QImage::Format LayerFormat = QImage::Format_ARGB32_Premultiplied;
+    // 96 DPI, Paint's default resolution.
+    static constexpr int DefaultDotsPerMeter = 3780;
 
     explicit Document(QSize size, QColor background = Qt::white);
 
@@ -28,6 +30,13 @@ public:
     void setBackgroundColor(const QColor &color) { m_backgroundColor = color; }
     bool isBackgroundVisible() const { return m_backgroundVisible; }
     void setBackgroundVisible(bool visible) { m_backgroundVisible = visible; }
+
+    // Print resolution, saved with the image (Paint shows it in Image properties as DPI).
+    int dotsPerMeter() const { return m_dotsPerMeter; }
+    void setDotsPerMeter(int dotsPerMeter)
+    {
+        m_dotsPerMeter = dotsPerMeter > 0 ? dotsPerMeter : DefaultDotsPerMeter;
+    }
 
     // Layers are ordered bottom to top.
     qsizetype layerCount() const { return m_layers.size(); }
@@ -41,7 +50,19 @@ public:
 
     // Changes the canvas size keeping the top-left corner; new areas are transparent on every
     // layer (the background colour shows through).
-    void resizeCanvas(QSize size);
+    void resizeCanvas(QSize size) { resizeCanvas(QRect(QPoint(0, 0), size)); }
+    // The new canvas covers `area` of the current one: e.g. a negative x adds room on the left.
+    void resizeCanvas(const QRect &area);
+    // Replaces every layer by `transform(layer)`; all results must have the same size, which
+    // becomes the canvas size.
+    template<typename Transform>
+    void transformLayers(Transform transform)
+    {
+        for (Layer &layer : m_layers) {
+            layer.image = transform(std::as_const(layer.image));
+        }
+        m_size = m_layers.first().image.size();
+    }
     // Cuts the canvas down to `area`; pixels outside `shape` (if given) become transparent.
     void crop(const QRect &area, const QPainterPath &shape = {});
 
@@ -56,6 +77,7 @@ private:
     QSize m_size;
     QColor m_backgroundColor;
     bool m_backgroundVisible = true;
+    int m_dotsPerMeter = DefaultDotsPerMeter;
     QList<Layer> m_layers;
     qsizetype m_activeLayer = 0;
 };

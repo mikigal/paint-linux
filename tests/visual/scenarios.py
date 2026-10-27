@@ -141,8 +141,31 @@ SCENARIOS: list[Scenario] = [
     Scenario("drop-image-light", steps=[
         ("drop", {"relativeTo": "canvasView.viewport", "x": 300, "y": 200,
                   "imagePath": "tests/golden/document/composite-two-layers.png"}), AWAY]),
+    # Image commands
+    Scenario("image-rotated-right-light", steps=[*PICTURE, invoke("image.rotateRight"), AWAY]),
+    Scenario("image-inverted-dark", theme="dark", steps=[*PICTURE, invoke("image.invertColors"), AWAY]),
+    Scenario("selection-flipped-light", steps=[
+        *PICTURE, invoke("tool.rectangleSelect"),
+        ("drag", {"relativeTo": "canvasView.viewport", "from": [180, 120], "to": [520, 320]}),
+        invoke("image.flipVertical"), AWAY]),
+    # Dragging the canvas's bottom-right handle shows the new size before it is applied. At 50 %
+    # the 1152×648 canvas sits centred in the 1280×626 viewport, its corner handle at (932, 479).
+    Scenario("canvas-resize-preview-light", steps=[
+        invoke("view.zoomOut"), invoke("view.zoomOut"),
+        ("mouse", {"action": "press", "relativeTo": "canvasView.viewport", "x": 932, "y": 479}),
+        ("mouse", {"action": "move", "relativeTo": "canvasView.viewport", "x": 1100, "y": 560}),
+    ]),
     # Dialogs
     Scenario("dialog-about-light", steps=[invoke("help.about")], target="active"),
+    Scenario("dialog-resize-skew-light", steps=[invoke("image.resizeSkew")], target="active"),
+    Scenario("dialog-resize-skew-dark", theme="dark", steps=[invoke("image.resizeSkew")], target="active"),
+    Scenario("dialog-custom-rotate-light", steps=[invoke("image.rotateCustom")], target="active"),
+    Scenario("dialog-image-properties-light", steps=[invoke("file.imageProperties")], target="active"),
+    Scenario("dialog-image-properties-dark", theme="dark", steps=[invoke("file.imageProperties")],
+             target="active"),
+    Scenario("dialog-edit-colors-light", steps=[click("ribbon.palette.4"), invoke("color.edit")], target="active"),
+    Scenario("dialog-edit-colors-dark", theme="dark", steps=[click("ribbon.palette.8"), invoke("color.edit")],
+             target="active"),
     Scenario("dialog-save-prompt-light", steps=[draw([[100, 100], [200, 200]]), invoke("file.new")],
              target="active"),
 ]

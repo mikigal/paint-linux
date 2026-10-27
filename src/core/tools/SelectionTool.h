@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ops/ImageOps.h"
 #include "tools/Tool.h"
 
 #include <QImage>
@@ -8,6 +9,8 @@
 #include <QPolygonF>
 #include <QRectF>
 #include <QTransform>
+
+#include <functional>
 
 namespace paint {
 
@@ -76,6 +79,11 @@ public:
     void paste(const QImage &image, QPointF topLeft);
     // Re-renders floating content (e.g. after the transparent selection option changed).
     void refresh();
+    // Applies an image operation (rotate, flip, resize, skew, invert…) to the selected pixels,
+    // lifting them first; the result stays floating, centred where the selection was.
+    void transformSelection(const std::function<ImageOp(const QImage &)> &operation);
+    // Turns the floating content by `degrees` more (Paint's custom rotate with a selection).
+    void rotateBy(qreal degrees);
 
 private:
     enum class Drag {

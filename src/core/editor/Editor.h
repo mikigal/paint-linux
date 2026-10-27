@@ -3,12 +3,14 @@
 #include "document/Document.h"
 #include "document/History.h"
 #include "io/ImageIO.h"
+#include "ops/ImageOps.h"
 #include "tools/Tool.h"
 #include "tools/ToolTypes.h"
 
 #include <QHash>
 #include <QObject>
 
+#include <functional>
 #include <memory>
 
 namespace paint {
@@ -55,6 +57,22 @@ public:
     void paste(const QImage &image, QPointF topLeft, bool enlargeCanvas = false);
     void cropToSelection();
 
+    // Image commands: on the selection if there is one, otherwise on the whole image.
+    void rotate(RotateBy rotation);
+    void rotate(qreal degrees);
+    void flip(Qt::Orientation orientation);
+    // Resizes to `size` (pixels of the selection or image), then skews by the given angles.
+    void resizeAndSkew(QSize size, qreal skewHorizontal, qreal skewVertical);
+    void invertColors();
+    // The size the image commands work on: the selection's bounds, or the canvas.
+    QSize operationSize() const;
+
+    // Whole-image commands.
+    // The new canvas covers `area` of the current one (negative origins add room left/top).
+    void resizeCanvas(const QRect &area);
+    void convertToBlackAndWhite();
+    void setResolution(int dotsPerMeter);
+
     void undo();
     void redo();
 
@@ -82,6 +100,8 @@ Q_SIGNALS:
 private:
     void replaceDocument(Document document, const QString &path, qint64 fileSize);
     void useSelectionTool();
+    // Applies `operation` to every layer as one undoable step.
+    void transformDocument(const QString &text, const std::function<ImageOp(const QImage &)> &operation);
 
     ToolSettings *m_settings;
     Document m_document;

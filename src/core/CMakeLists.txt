@@ -13,6 +13,8 @@ add_library(paint_core STATIC
     io/MimeImport.h
     ops/FloodFill.cpp
     ops/FloodFill.h
+    ops/ImageOps.cpp
+    ops/ImageOps.h
     shapes/ShapeGeometry.cpp
     shapes/ShapeGeometry.h
     tools/ClickTools.cpp

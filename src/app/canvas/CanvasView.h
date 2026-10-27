@@ -49,6 +49,8 @@ Q_SIGNALS:
     // Something was dropped: `onCanvas` tells whether it landed on the image itself. The payload
     // is only valid during the signal.
     void dropped(const QMimeData *mime, QPointF documentPosition, bool onCanvas);
+    // While a canvas handle is dragged: the size the canvas will get (no value when done).
+    void canvasResizePreview(std::optional<QSize> size);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -81,10 +83,17 @@ private:
     void setHoverPosition(std::optional<QPointF> position);
     void updateCursor();
     void updateSelectionCursor(QPointF documentPosition);
+    // The canvas resize handle under a viewport point (index into handleRects()), or -1.
+    int canvasHandleAt(QPointF viewportPoint) const;
+    QRect canvasResizeTarget(QPointF viewportPoint) const;
 
     paint::Editor *m_editor;
     QImage m_composite;
     double m_zoom = 1.0;
     std::optional<QPointF> m_hover; // pointer position in document coordinates
     Qt::MouseButton m_drawingButton = Qt::NoButton;
+    // Dragging a canvas handle: which one, where it started, and the canvas it would give.
+    int m_resizeHandle = -1;
+    QPointF m_resizeStart;
+    std::optional<QRect> m_resizeTarget;
 };

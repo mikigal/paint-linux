@@ -42,7 +42,7 @@ a Linux-native form).
 | Print → Print, Page setup, Print preview | Windows dialogs | `QPrintDialog`, `QPageSetupDialog`, `QPrintPreviewDialog` | M8 | todo |
 | Share | Windows share sheet | — | — | excluded |
 | Set as desktop background → Fill, Tile, Center | Sets wallpaper | XDG Wallpaper portal; modes pre-rendered to screen size | M8 | todo |
-| Image properties | Ctrl+E dialog | Same | M4 | todo |
+| Image properties | Ctrl+E dialog | Same dialog: file attributes, units, black and white, canvas size, Default | M4 | done |
 | Exit | Alt+F4 | Quit, Ctrl+Q | M0 | done |
 
 ## Edit menu and clipboard
@@ -89,11 +89,11 @@ a Linux-native form).
 | Feature | Paint | Paint for Linux | M | Status |
 |---|---|---|---|---|
 | Crop | Needs a selection | Same | M3 | todo |
-| Resize and skew | Ctrl+W: percentage/pixels, aspect lock, skew degrees | Same | M4 | todo |
-| Rotate | Right 90°, left 90°, 180°, Custom rotate… | Same | M4 | todo |
-| Flip | Vertical, horizontal | Same | M4 | todo |
-| Invert colors | Ctrl+Shift+I (context menu) | Same + Edit menu | M4 | todo |
-| Canvas resize | Drag canvas handles | Same | M4 | todo |
+| Resize and skew | Ctrl+W: percentage/pixels, aspect lock, skew degrees | Same dialog; works on the selection when there is one | M4 | done |
+| Rotate | Right 90°, left 90°, 180°, Custom rotate… | Same; on the selection when there is one, else the whole image (custom angles grow the canvas) | M4 | done |
+| Flip | Vertical, horizontal | Same; on the selection when there is one, else the whole image | M4 | done |
+| Invert colors | Ctrl+Shift+I (context menu) | Same + Image menu; the selection, else the current layer | M4 | done |
+| Canvas resize | Drag canvas handles | All eight handles, with a dashed preview and the new size in the status bar | M4 | done |
 | Remove background | AI | — | — | excluded |
 
 ## Tools group
@@ -138,8 +138,8 @@ a Linux-native form).
 |---|---|---|---|---|
 | Colour 1 / Colour 2 | Two circles | Same | M1/M2 | done |
 | Palette | 10×2 presets | Same | M1 | done |
-| Custom colours | Row of 10, persisted | Same | M4 | todo |
-| Edit colors dialog | Hue×saturation field, brightness, preview, hex, RGB/HSV, 48 basic, 24 custom, colour names | Same | M4 | todo |
+| Custom colours | Row of 10, persisted | Same, remembered between sessions | M4 | done |
+| Edit colors dialog | Hue×saturation field, brightness, preview, hex, RGB/HSV, 48 basic, 24 custom, colour names | Same | M4 | done |
 
 ## Layers
 

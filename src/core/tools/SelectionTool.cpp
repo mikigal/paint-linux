@@ -504,6 +504,44 @@ void SelectionTool::deleteSelected()
     placeContent(false);
 }
 
+void SelectionTool::transformSelection(const std::function<ImageOp(const QImage &)> &operation)
+{
+    if (!hasSelection()) {
+        return;
+    }
+    // Bake any earlier move, scale or rotation into the layer, then work on plain pixels.
+    place();
+    lift(false);
+    if (!m_floating) {
+        return;
+    }
+    const QPointF centre = m_target.center();
+    ImageOp result = operation(m_content);
+    m_contentShape = result.mapping.map(m_contentShape);
+    m_content = result.image.convertToFormat(Document::LayerFormat);
+    QRectF target(QPointF(), QSizeF(m_content.size()));
+    target.moveCenter(centre);
+    target.moveTopLeft(QPointF(std::round(target.left()), std::round(target.top())));
+    m_target = target;
+    render();
+    notify();
+}
+
+void SelectionTool::rotateBy(qreal degrees)
+{
+    if (!hasSelection()) {
+        return;
+    }
+    if (!m_floating) {
+        lift(false);
+    }
+    if (m_floating) {
+        m_angle = std::remainder(m_angle + degrees, 360.0);
+        render();
+        notify();
+    }
+}
+
 void SelectionTool::place()
 {
     m_drag = Drag::None;

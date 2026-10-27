@@ -239,6 +239,69 @@ QList<QRectF> CanvasView::handleRects() const
     return rects;
 }
 
+int CanvasView::canvasHandleAt(QPointF viewportPoint) const
+{
+    const QList<QRectF> rects = handleRects();
+    for (qsizetype i = 0; i < rects.size(); ++i) {
+        if (rects.at(i).adjusted(-4, -4, 4, 4).contains(viewportPoint)) {
+            return int(i);
+        }
+    }
+    return -1;
+}
+
+namespace {
+
+// handleRects() order: x fractions 0, ½, 1 (outer loop) × y fractions 0, ½, 1, without the centre.
+struct HandleEdges
+{
+    bool left, right, top, bottom;
+};
+
+HandleEdges edgesOf(int handle)
+{
+    static constexpr qreal fractions[] = {0.0, 0.5, 1.0};
+    int index = handle >= 4 ? handle + 1 : handle; // skip the centre
+    const qreal fx = fractions[index / 3];
+    const qreal fy = fractions[index % 3];
+    return {fx == 0.0, fx == 1.0, fy == 0.0, fy == 1.0};
+}
+
+Qt::CursorShape cursorFor(const HandleEdges &edges)
+{
+    if ((edges.left && edges.top) || (edges.right && edges.bottom)) {
+        return Qt::SizeFDiagCursor;
+    }
+    if ((edges.right && edges.top) || (edges.left && edges.bottom)) {
+        return Qt::SizeBDiagCursor;
+    }
+    return edges.left || edges.right ? Qt::SizeHorCursor : Qt::SizeVerCursor;
+}
+
+} // namespace
+
+QRect CanvasView::canvasResizeTarget(QPointF viewportPoint) const
+{
+    // Moved edges follow the pointer in whole document pixels; the canvas keeps at least 1×1.
+    const QPointF delta = (viewportPoint - m_resizeStart) / m_zoom;
+    const HandleEdges edges = edgesOf(m_resizeHandle);
+    const QSize size = m_editor->document().size();
+    int left = 0, top = 0, right = size.width(), bottom = size.height();
+    if (edges.left) {
+        left = std::min(right - 1, int(std::round(delta.x())));
+    }
+    if (edges.right) {
+        right = std::max(left + 1, size.width() + int(std::round(delta.x())));
+    }
+    if (edges.top) {
+        top = std::min(bottom - 1, int(std::round(delta.y())));
+    }
+    if (edges.bottom) {
+        bottom = std::max(top + 1, size.height() + int(std::round(delta.y())));
+    }
+    return QRect(QPoint(left, top), QPoint(right - 1, bottom - 1));
+}
+
 std::optional<QRectF> CanvasView::brushOutline() const
 {
     const ToolSettings &settings = m_editor->settings();
@@ -282,6 +345,15 @@ void CanvasView::paintEvent(QPaintEvent *event)
     }
 
     paintSelection(painter);
+
+    if (m_resizeTarget) {
+        // The new canvas edge follows the pointer as a dashed outline until the button is released.
+        painter.setRenderHint(QPainter::Antialiasing, false);
+        painter.setBrush(Qt::NoBrush);
+        QPen dashes(palette().color(QPalette::WindowText), 1, Qt::DashLine);
+        painter.setPen(dashes);
+        painter.drawRect(documentToViewport(QRectF(*m_resizeTarget)).adjusted(-0.5, -0.5, -0.5, -0.5));
+    }
 
     if (const std::optional<QRectF> outline = brushOutline()) {
         // A dark ring inside a light one stays visible on any colour.
@@ -366,6 +438,16 @@ PointerEvent CanvasView::pointerEvent(const QMouseEvent *event, Qt::MouseButton 
 
 void CanvasView::mousePressEvent(QMouseEvent *event)
 {
+    if (event->button() == Qt::LeftButton && m_drawingButton == Qt::NoButton) {
+        if (const int handle = canvasHandleAt(event->position()); handle >= 0) {
+            m_editor->commitTool();
+            m_resizeHandle = handle;
+            m_resizeStart = event->position();
+            m_resizeTarget = m_editor->document().rect();
+            Q_EMIT canvasResizePreview(m_resizeTarget->size());
+            return;
+        }
+    }
     if (event->button() != Qt::LeftButton && event->button() != Qt::RightButton) {
         QAbstractScrollArea::mousePressEvent(event);
         return;
@@ -389,7 +471,20 @@ void CanvasView::mouseMoveEvent(QMouseEvent *event)
     } else {
         Q_EMIT cursorPositionChanged(std::nullopt);
     }
+    if (m_resizeHandle >= 0) {
+        m_resizeTarget = canvasResizeTarget(event->position());
+        Q_EMIT canvasResizePreview(m_resizeTarget->size());
+        viewport()->update();
+        return;
+    }
     setHoverPosition(point);
+    if (m_drawingButton == Qt::NoButton) {
+        if (const int handle = canvasHandleAt(event->position()); handle >= 0) {
+            viewport()->setCursor(cursorFor(edgesOf(handle)));
+            return;
+        }
+        updateCursor();
+    }
     if (m_drawingButton != Qt::NoButton) {
         m_editor->currentTool()->move(pointerEvent(event, Qt::NoButton));
     } else if (isSelectionTool(m_editor->settings().tool())) {
@@ -399,6 +494,15 @@ void CanvasView::mouseMoveEvent(QMouseEvent *event)
 
 void CanvasView::mouseReleaseEvent(QMouseEvent *event)
 {
+    if (m_resizeHandle >= 0 && event->button() == Qt::LeftButton) {
+        const QRect target = canvasResizeTarget(event->position());
+        m_resizeHandle = -1;
+        m_resizeTarget.reset();
+        Q_EMIT canvasResizePreview(std::nullopt);
+        m_editor->resizeCanvas(target);
+        viewport()->update();
+        return;
+    }
     if (event->button() != m_drawingButton) {
         QAbstractScrollArea::mouseReleaseEvent(event);
         return;
@@ -411,6 +515,14 @@ void CanvasView::keyPressEvent(QKeyEvent *event)
 {
     if (m_drawingButton == Qt::NoButton &&
         m_editor->currentTool()->keyPress(event->key(), event->modifiers())) {
+        event->accept();
+        return;
+    }
+    if (event->key() == Qt::Key_Escape && m_resizeHandle >= 0) {
+        m_resizeHandle = -1;
+        m_resizeTarget.reset();
+        Q_EMIT canvasResizePreview(std::nullopt);
+        viewport()->update();
         event->accept();
         return;
     }

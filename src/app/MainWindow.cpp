@@ -4,6 +4,10 @@
 #include "PaintConfig.h"
 #include "canvas/CanvasView.h"
 #include "canvas/SidePanel.h"
+#include "dialogs/CustomRotateDialog.h"
+#include "dialogs/EditColorsDialog.h"
+#include "dialogs/ImagePropertiesDialog.h"
+#include "dialogs/ResizeSkewDialog.h"
 #include "editor/Editor.h"
 #include "io/ImageIO.h"
 #include "io/MimeImport.h"
@@ -35,6 +39,7 @@
 #include <QMimeData>
 #include <QPushButton>
 #include <QSet>
+#include <QSettings>
 #include <QStandardPaths>
 #include <QStatusBar>
 #include <QTimer>
@@ -291,6 +296,16 @@ void MainWindow::connectActions()
     on(ActionId::InvertSelection, [this] { m_editor->invertSelection(); });
     on(ActionId::DeleteSelection, [this] { m_editor->deleteSelection(); });
     on(ActionId::Crop, [this] { m_editor->cropToSelection(); });
+    on(ActionId::RotateRight, [this] { m_editor->rotate(RotateBy::Right90); });
+    on(ActionId::RotateLeft, [this] { m_editor->rotate(RotateBy::Left90); });
+    on(ActionId::Rotate180, [this] { m_editor->rotate(RotateBy::Half); });
+    on(ActionId::RotateCustom, &MainWindow::showCustomRotate);
+    on(ActionId::FlipVertical, [this] { m_editor->flip(Qt::Vertical); });
+    on(ActionId::FlipHorizontal, [this] { m_editor->flip(Qt::Horizontal); });
+    on(ActionId::ResizeSkew, &MainWindow::showResizeSkew);
+    on(ActionId::InvertColors, [this] { m_editor->invertColors(); });
+    on(ActionId::ImageProperties, &MainWindow::showImageProperties);
+    on(ActionId::EditColors, &MainWindow::showEditColors);
     on(ActionId::About, &MainWindow::showAbout);
     on(ActionId::AboutQt, &QApplication::aboutQt);
     on(ActionId::ZoomIn, [this] { m_canvas->zoomIn(); });
@@ -327,6 +342,22 @@ void MainWindow::connectActions()
         m_layers->refresh();
     });
     connect(m_editor, &Editor::selectionStateChanged, this, &MainWindow::updateSelectionInfo);
+    connect(m_canvas, &CanvasView::canvasResizePreview, this, [this](std::optional<QSize> size) {
+        if (size) {
+            m_canvasSizeLabel->setText(tr("%1 × %2px").arg(size->width()).arg(size->height()));
+        } else {
+            updateDocumentInfo();
+        }
+    });
+    // The palette's custom colours are remembered between sessions.
+    loadCustomColors();
+    connect(m_settings, &ToolSettings::customColorsChanged, this, [this] {
+        QStringList names;
+        for (const QColor &color : m_settings->customColors()) {
+            names.append(color.isValid() ? color.name() : QString());
+        }
+        QSettings().setValue(QStringLiteral("colors/custom"), names);
+    });
     connect(QGuiApplication::clipboard(), &QClipboard::dataChanged, this,
             &MainWindow::updatePasteAvailability);
     connect(m_canvas, &CanvasView::dropped, this,
@@ -365,6 +396,16 @@ void MainWindow::connectActions()
         ActionId::InvertSelection,
         ActionId::DeleteSelection,
         ActionId::Crop,
+        ActionId::RotateRight,
+        ActionId::RotateLeft,
+        ActionId::Rotate180,
+        ActionId::RotateCustom,
+        ActionId::FlipVertical,
+        ActionId::FlipHorizontal,
+        ActionId::ResizeSkew,
+        ActionId::InvertColors,
+        ActionId::ImageProperties,
+        ActionId::EditColors,
         ActionId::About,
         ActionId::AboutQt,
         ActionId::ZoomIn,
@@ -550,6 +591,76 @@ void MainWindow::dropEvent(QDropEvent *event)
 {
     importMimeData(event->mimeData(), std::nullopt, true);
     event->acceptProposedAction();
+}
+
+void MainWindow::loadCustomColors()
+{
+    const QStringList names = QSettings().value(QStringLiteral("colors/custom")).toStringList();
+    for (int i = 0; i < std::min<int>(int(names.size()), ToolSettings::CustomColorCount); ++i) {
+        m_settings->setCustomColor(i, names.at(i).isEmpty() ? QColor() : QColor(names.at(i)));
+    }
+}
+
+void MainWindow::showResizeSkew()
+{
+    ResizeSkewDialog dialog(m_editor->operationSize(), this);
+    if (dialog.exec() == QDialog::Accepted && dialog.changesAnything()) {
+        m_editor->resizeAndSkew(dialog.resultSize(), dialog.skewHorizontal(), dialog.skewVertical());
+    }
+}
+
+void MainWindow::showCustomRotate()
+{
+    CustomRotateDialog dialog(this);
+    if (dialog.exec() == QDialog::Accepted && dialog.angle() != 0) {
+        m_editor->rotate(dialog.angle());
+    }
+}
+
+void MainWindow::showImageProperties()
+{
+    const QString path = m_editor->filePath();
+    const ImagePropertiesDialog::Facts facts{
+        m_editor->document().size(),
+        m_editor->document().dotsPerMeter(),
+        path.isEmpty() ? QDateTime() : QFileInfo(path).lastModified(),
+        m_editor->fileSize(),
+        Editor::DefaultSize,
+    };
+    ImagePropertiesDialog dialog(facts, this);
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+    if (dialog.resultSize() != facts.size) {
+        m_editor->resizeCanvas(QRect(QPoint(0, 0), dialog.resultSize()));
+    }
+    if (dialog.blackAndWhite()) {
+        m_editor->convertToBlackAndWhite();
+    }
+}
+
+void MainWindow::showEditColors()
+{
+    QSettings settings;
+    QList<QColor> custom;
+    for (const QString &name : settings.value(QStringLiteral("editColors/custom")).toStringList()) {
+        custom.append(name.isEmpty() ? QColor() : QColor(name));
+    }
+    const ColorSlot slot = m_settings->activeColorSlot();
+    EditColorsDialog dialog(m_settings->color(slot), custom, this);
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+    QStringList names;
+    for (const QColor &color : dialog.customColors()) {
+        names.append(color.isValid() ? color.name() : QString());
+    }
+    settings.setValue(QStringLiteral("editColors/custom"), names);
+    // Like Paint: the colour goes to the active slot and into the palette's custom row.
+    m_settings->setColor(slot, dialog.color());
+    if (!m_settings->customColors().contains(dialog.color())) {
+        m_settings->addCustomColor(dialog.color());
+    }
 }
 
 void MainWindow::newImage()

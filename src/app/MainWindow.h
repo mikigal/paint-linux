@@ -75,6 +75,11 @@ private:
     void copyToClipboard(const QImage &image);
     void pasteFromClipboard();
     void importFromFile();
+    void showResizeSkew();
+    void showCustomRotate();
+    void showImageProperties();
+    void showEditColors();
+    void loadCustomColors();
     void showCanvasContextMenu(QPoint globalPosition);
     void setCursorPosition(std::optional<QPoint> position);
 

@@ -28,6 +28,8 @@ QImage Document::composite(const QRect &area) const
 {
     const QRect clipped = area.intersected(rect());
     QImage result(clipped.size(), LayerFormat);
+    result.setDotsPerMeterX(m_dotsPerMeter);
+    result.setDotsPerMeterY(m_dotsPerMeter);
     result.fill(m_backgroundVisible ? m_backgroundColor : QColor(Qt::transparent));
 
     QPainter painter(&result);
@@ -39,15 +41,15 @@ QImage Document::composite(const QRect &area) const
     return result;
 }
 
-void Document::resizeCanvas(QSize size)
+void Document::resizeCanvas(const QRect &area)
 {
-    Q_ASSERT(!size.isEmpty());
-    m_size = size;
+    Q_ASSERT(!area.isEmpty());
+    m_size = area.size();
     for (Layer &layer : m_layers) {
         QImage resized = makeTransparentImage();
         QPainter painter(&resized);
         painter.setCompositionMode(QPainter::CompositionMode_Source);
-        painter.drawImage(0, 0, layer.image);
+        painter.drawImage(-area.topLeft(), layer.image);
         painter.end();
         layer.image = std::move(resized);
     }

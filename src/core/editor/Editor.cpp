@@ -107,6 +107,115 @@ void Editor::redo()
     m_history.redo();
 }
 
+void Editor::transformDocument(const QString &text, const std::function<ImageOp(const QImage &)> &operation)
+{
+    commitTool();
+    m_selection->commit();
+    const Document before = m_document;
+    m_document.transformLayers([&operation](const QImage &layer) { return operation(layer).image; });
+    m_history.recordDocumentChange(text, before);
+    Q_EMIT documentRestructured();
+}
+
+QSize Editor::operationSize() const
+{
+    return m_selection->hasSelection() ? m_selection->bounds().size() : m_document.size();
+}
+
+void Editor::rotate(RotateBy rotation)
+{
+    const auto operation = [rotation](const QImage &image) { return paint::rotate(image, rotation); };
+    if (m_selection->hasSelection()) {
+        m_selection->transformSelection(operation);
+    } else {
+        transformDocument(tr("Rotate"), operation);
+    }
+}
+
+void Editor::rotate(qreal degrees)
+{
+    if (m_selection->hasSelection()) {
+        m_selection->rotateBy(degrees);
+    } else {
+        transformDocument(tr("Rotate"),
+                          [degrees](const QImage &image) { return paint::rotate(image, degrees); });
+    }
+}
+
+void Editor::flip(Qt::Orientation orientation)
+{
+    const auto operation = [orientation](const QImage &image) { return paint::flip(image, orientation); };
+    if (m_selection->hasSelection()) {
+        m_selection->transformSelection(operation);
+    } else {
+        transformDocument(tr("Flip"), operation);
+    }
+}
+
+void Editor::resizeAndSkew(QSize size, qreal skewHorizontal, qreal skewVertical)
+{
+    const auto operation = [size, skewHorizontal, skewVertical](const QImage &image) {
+        const ImageOp scaled = paint::scale(image, size);
+        ImageOp skewed = paint::skew(scaled.image, skewHorizontal, skewVertical);
+        skewed.mapping = scaled.mapping * skewed.mapping;
+        return skewed;
+    };
+    if (m_selection->hasSelection()) {
+        m_selection->transformSelection(operation);
+    } else {
+        transformDocument(tr("Resize and skew"), operation);
+    }
+}
+
+void Editor::invertColors()
+{
+    if (m_selection->hasSelection()) {
+        m_selection->transformSelection([](const QImage &image) {
+            QImage inverted = image;
+            paint::invertColors(inverted);
+            return ImageOp{inverted, QTransform()};
+        });
+        return;
+    }
+    // Without a selection Paint inverts the current layer.
+    commitTool();
+    const qsizetype layer = m_document.activeLayerIndex();
+    const QImage before = m_document.layer(layer).image;
+    paint::invertColors(m_document.layer(layer).image);
+    m_history.recordPixelEdit(tr("Invert colors"), layer, m_document.rect(), before);
+    Q_EMIT pixelsChanged(m_document.rect());
+}
+
+void Editor::resizeCanvas(const QRect &area)
+{
+    if (area.isEmpty() || area == m_document.rect()) {
+        return;
+    }
+    commitTool();
+    m_selection->commit();
+    const Document before = m_document;
+    m_document.resizeCanvas(area);
+    m_history.recordDocumentChange(tr("Canvas size"), before);
+    Q_EMIT documentRestructured();
+}
+
+void Editor::convertToBlackAndWhite()
+{
+    transformDocument(tr("Black and white"),
+                      [](const QImage &image) { return ImageOp{toBlackAndWhite(image), QTransform()}; });
+}
+
+void Editor::setResolution(int dotsPerMeter)
+{
+    if (dotsPerMeter == m_document.dotsPerMeter()) {
+        return;
+    }
+    const Document before = m_document;
+    m_document.setDotsPerMeter(dotsPerMeter);
+    m_history.recordDocumentChange(tr("Resolution"), before);
+    Q_EMIT documentRestructured();
+}
+
 void Editor::useSelectionTool()
 {
     if (!isSelectionTool(m_settings->tool())) {
@@ -201,6 +310,7 @@ QString Editor::open(const QString &path)
     Document document(loaded.image.size());
     // Transparent images open with the background hidden, so their transparency survives.
     document.setBackgroundVisible(!hasTransparency(loaded.image));
+    document.setDotsPerMeter(loaded.image.dotsPerMeterX());
     document.layer(0).image = std::move(loaded.image);
     replaceDocument(std::move(document), QFileInfo(path).absoluteFilePath(), QFileInfo(path).size());
     return {};
