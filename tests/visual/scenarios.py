@@ -211,6 +211,21 @@ SCENARIOS: list[Scenario] = [
         # The rotate handle sits 24 px above the middle of the top edge.
         ("drag", {"relativeTo": "canvasView.viewport", "from": [500, 176], "to": [700, 120], "modifiers": "shift"}),
         AWAY]),
+    # Layers: each stroke on its own layer; the panel shows them top first above the background.
+    Scenario("layers-drawn-light", steps=[
+        invoke("view.layersPanel"), invoke("tool.brush"), slider("size", 30),
+        click("ribbon.palette.3"), draw([[100, 100], [500, 300]]),
+        invoke("layer.add"), click("ribbon.palette.7"), draw([[100, 300], [500, 100]]),
+        invoke("layer.add"), click("ribbon.palette.6"), draw([[300, 60], [300, 360]]),
+        invoke("layer.toggleVisibility"), AWAY]),
+    Scenario("layers-background-hidden-dark", theme="dark", steps=[
+        invoke("view.layersPanel"), invoke("tool.brush"), slider("size", 30),
+        click("ribbon.palette.4"), draw([[100, 100], [500, 300]]),
+        invoke("layer.add"), click("ribbon.palette.8"), draw([[100, 300], [500, 100]]),
+        ("key", {"keys": "Ctrl+Shift+H"}), AWAY]),
+    Scenario("layers-menu-light", steps=[
+        invoke("view.layersPanel"), invoke("layer.add"),
+        ("click", {"target": "layers.list", "at": [48, 30], "button": "right"})]),
     # Image commands
     Scenario("image-rotated-right-light", steps=[*PICTURE, invoke("image.rotateRight"), AWAY]),
     Scenario("image-inverted-dark", theme="dark", steps=[*PICTURE, invoke("image.invertColors"), AWAY]),

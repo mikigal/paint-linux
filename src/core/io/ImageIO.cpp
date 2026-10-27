@@ -43,9 +43,18 @@ const QList<SaveFormat> &saveFormats()
     return formats;
 }
 
+const SaveFormat &projectFormat()
+{
+    static const SaveFormat format{"ora", tr("OpenRaster project"), {QStringLiteral("ora")}, true};
+    return format;
+}
+
 std::optional<SaveFormat> saveFormatForSuffix(const QString &suffix)
 {
     const QString lower = suffix.toLower();
+    if (projectFormat().suffixes.contains(lower)) {
+        return projectFormat();
+    }
     for (const SaveFormat &format : saveFormats()) {
         if (format.suffixes.contains(lower)) {
             return format;
@@ -65,6 +74,8 @@ QStringList openNameFilters()
     for (const QByteArray &format : QImageReader::supportedImageFormats()) {
         patterns.append(QStringLiteral("*.") + QString::fromLatin1(format));
     }
+    // Layered projects open as layers.
+    patterns.append(QStringLiteral("*.ora"));
     patterns.removeDuplicates();
     std::ranges::sort(patterns);
     return {tr("Images (%1)").arg(patterns.join(QLatin1Char(' '))), tr("All files (*)")};

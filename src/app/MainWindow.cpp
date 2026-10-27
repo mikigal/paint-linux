@@ -11,6 +11,7 @@
 #include "editor/Editor.h"
 #include "io/ImageIO.h"
 #include "io/MimeImport.h"
+#include "io/OpenRaster.h"
 #include "panels/LayersDock.h"
 #include "platform/RemoteImageLoader.h"
 #include "ribbon/PaintRibbon.h"
@@ -90,7 +91,7 @@ MainWindow::MainWindow(QWidget *parent)
     , m_actions(new ActionRegistry(m_settings, this))
     , m_canvas(new CanvasView(m_editor, this))
     , m_sidePanel(new SidePanel(m_settings, m_canvas))
-    , m_layers(new LayersDock(&m_editor->document(), m_actions, this))
+    , m_layers(new LayersDock(m_editor, m_actions, this))
     , m_remoteImages(new RemoteImageLoader(this))
 {
     setObjectName(QStringLiteral("mainWindow"));
@@ -118,6 +119,8 @@ MainWindow::~MainWindow()
     // longer a MainWindow; its signals must not reach the lambdas above by then.
     disconnect(m_editor, nullptr, this, nullptr);
     disconnect(m_editor->history().stack(), nullptr, this, nullptr);
+    // A visible layers panel reports being hidden as the window goes.
+    disconnect(m_layers, nullptr, this, nullptr);
 }
 
 void MainWindow::createMenus()
@@ -191,6 +194,17 @@ void MainWindow::createMenus()
     add(flip, ActionId::FlipVertical);
     add(flip, ActionId::FlipHorizontal);
     add(image, ActionId::InvertColors);
+    image->addSeparator();
+    // Paint keeps these on the layers panel; a native menu lists them as well.
+    QMenu *layers = submenu(image, QStringLiteral("imageLayers"), tr("&Layers"));
+    layers->setIcon(ui::icon(QStringLiteral("layers")));
+    for (ActionId id : {ActionId::AddLayer, ActionId::DuplicateLayer, ActionId::MergeLayerDown,
+                        ActionId::ToggleLayerVisibility, ActionId::DeleteLayer}) {
+        add(layers, id);
+    }
+    layers->addSeparator();
+    add(layers, ActionId::ToggleBackground);
+    add(layers, ActionId::BackgroundColor);
 
     QMenu *view = menuBar()->addMenu(tr("&View"));
     view->setObjectName(QStringLiteral("menu.view"));
@@ -298,6 +312,18 @@ void MainWindow::connectActions()
     on(ActionId::SaveAs, [this] { saveImageAs(); });
     on(ActionId::SaveAsPng, [this] { saveImageAs(QStringLiteral("png")); });
     on(ActionId::SaveAsJpeg, [this] { saveImageAs(QStringLiteral("jpg")); });
+    on(ActionId::SaveAsProject, &MainWindow::saveProjectAs);
+    on(ActionId::AddLayer, [this] { m_editor->addLayer(); });
+    on(ActionId::DuplicateLayer, [this] { m_editor->duplicateLayer(); });
+    on(ActionId::DeleteLayer, [this] { m_editor->deleteLayer(); });
+    on(ActionId::MergeLayerDown, [this] { m_editor->mergeLayerDown(); });
+    on(ActionId::ToggleLayerVisibility, [this] {
+        const qsizetype active = m_editor->document().activeLayerIndex();
+        m_editor->setLayerVisible(active, !m_editor->document().layer(active).visible);
+    });
+    on(ActionId::ToggleBackground,
+       [this] { m_editor->setBackgroundVisible(!m_editor->document().isBackgroundVisible()); });
+    on(ActionId::BackgroundColor, &MainWindow::showBackgroundColor);
     on(ActionId::SaveAsBmp, [this] { saveImageAs(QStringLiteral("bmp")); });
     on(ActionId::Undo, [this] { m_editor->undo(); });
     on(ActionId::Redo, [this] { m_editor->redo(); });
@@ -349,12 +375,15 @@ void MainWindow::connectActions()
     connect(m_editor, &Editor::documentReplaced, this, [this, syncHistory] {
         syncHistory();
         updateDocumentInfo();
+        updateLayerState();
         m_layers->refresh();
     });
     connect(m_editor, &Editor::documentRestructured, this, [this] {
         updateDocumentInfo();
+        updateLayerState();
         m_layers->refresh();
     });
+    connect(m_editor, &Editor::activeLayerChanged, this, &MainWindow::updateLayerState);
     connect(m_editor, &Editor::selectionStateChanged, this, &MainWindow::updateSelectionInfo);
     connect(m_canvas, &CanvasView::canvasResizePreview, this, [this](std::optional<QSize> size) {
         if (size) {
@@ -399,6 +428,14 @@ void MainWindow::connectActions()
         ActionId::SaveAsPng,
         ActionId::SaveAsJpeg,
         ActionId::SaveAsBmp,
+        ActionId::SaveAsProject,
+        ActionId::AddLayer,
+        ActionId::DuplicateLayer,
+        ActionId::DeleteLayer,
+        ActionId::MergeLayerDown,
+        ActionId::ToggleLayerVisibility,
+        ActionId::ToggleBackground,
+        ActionId::BackgroundColor,
         ActionId::Undo,
         ActionId::Redo,
         ActionId::Cut,
@@ -662,28 +699,52 @@ void MainWindow::showImageProperties()
     }
 }
 
-void MainWindow::showEditColors()
+std::optional<QColor> MainWindow::pickColor(const QColor &initial)
 {
     QSettings settings;
     QList<QColor> custom;
     for (const QString &name : settings.value(QStringLiteral("editColors/custom")).toStringList()) {
         custom.append(name.isEmpty() ? QColor() : QColor(name));
     }
-    const ColorSlot slot = m_settings->activeColorSlot();
-    EditColorsDialog dialog(m_settings->color(slot), custom, this);
+    EditColorsDialog dialog(initial, custom, this);
     if (dialog.exec() != QDialog::Accepted) {
-        return;
+        return std::nullopt;
     }
     QStringList names;
     for (const QColor &color : dialog.customColors()) {
         names.append(color.isValid() ? color.name() : QString());
     }
     settings.setValue(QStringLiteral("editColors/custom"), names);
-    // Like Paint: the colour goes to the active slot and into the palette's custom row.
-    m_settings->setColor(slot, dialog.color());
-    if (!m_settings->customColors().contains(dialog.color())) {
-        m_settings->addCustomColor(dialog.color());
+    return dialog.color();
+}
+
+void MainWindow::showEditColors()
+{
+    const ColorSlot slot = m_settings->activeColorSlot();
+    const std::optional<QColor> color = pickColor(m_settings->color(slot));
+    if (!color) {
+        return;
     }
+    // Like Paint: the colour goes to the active slot and into the palette's custom row.
+    m_settings->setColor(slot, *color);
+    if (!m_settings->customColors().contains(*color)) {
+        m_settings->addCustomColor(*color);
+    }
+}
+
+void MainWindow::showBackgroundColor()
+{
+    if (const std::optional<QColor> color = pickColor(m_editor->document().backgroundColor())) {
+        m_editor->setBackgroundColor(*color);
+    }
+}
+
+void MainWindow::updateLayerState()
+{
+    const Document &document = m_editor->document();
+    m_actions->setLayerState(document.layerCount(), document.activeLayerIndex(),
+                             document.layer(document.activeLayerIndex()).visible,
+                             document.isBackgroundVisible());
 }
 
 void MainWindow::newImage()
@@ -762,6 +823,25 @@ bool MainWindow::saveImageAs(const QString &suffix)
         path += QLatin1Char('.') + format->suffixes.first();
     }
     return saveFile(path, *format);
+}
+
+bool MainWindow::saveProjectAs()
+{
+    const QString current = m_editor->filePath();
+    const QString directory = current.isEmpty()
+                                  ? QStandardPaths::writableLocation(QStandardPaths::PicturesLocation)
+                                  : QFileInfo(current).absolutePath();
+    const QString baseName = current.isEmpty() ? tr("Untitled") : QFileInfo(current).completeBaseName();
+    QString path = QFileDialog::getSaveFileName(
+        this, tr("Save as project"), directory + QLatin1Char('/') + baseName + QStringLiteral(".ora"),
+        projectFormat().nameFilter());
+    if (path.isEmpty()) {
+        return false;
+    }
+    if (!isOpenRasterPath(path)) {
+        path += QStringLiteral(".ora");
+    }
+    return saveFile(path, projectFormat());
 }
 
 bool MainWindow::saveFile(const QString &path)
@@ -875,5 +955,6 @@ QJsonObject MainWindow::automationState() const
         {QStringLiteral("compactGroups"), compactGroups},
         {QStringLiteral("ribbonAutoHide"), m_ribbonHost->autoHide()},
         {QStringLiteral("layersPanel"), m_layers->isVisible()},
+        {QStringLiteral("backgroundVisible"), m_editor->document().isBackgroundVisible()},
     };
 }

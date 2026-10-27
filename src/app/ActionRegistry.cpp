@@ -416,7 +416,7 @@ void ActionRegistry::createActions(QWidget *window)
     // Commands that need a selection or history start disabled, as in a fresh Paint window.
     setSelectionAvailable(false);
     setHistoryAvailable(false, false);
-    setLayerState(1, 0);
+    setLayerState(1, 0, true, true);
 }
 
 void ActionRegistry::createToolActions(QWidget *window)
@@ -634,8 +634,14 @@ void ActionRegistry::setHistoryAvailable(bool canUndo, bool canRedo)
     get(ActionId::Redo)->setEnabled(canRedo);
 }
 
-void ActionRegistry::setLayerState(qsizetype layerCount, qsizetype activeLayer)
+void ActionRegistry::setLayerState(qsizetype layerCount, qsizetype activeLayer, bool activeVisible,
+                                   bool backgroundVisible)
 {
     get(ActionId::DeleteLayer)->setEnabled(layerCount > 1);
     get(ActionId::MergeLayerDown)->setEnabled(activeLayer > 0);
+    get(ActionId::ToggleLayerVisibility)->setText(activeVisible ? tr("&Hide layer") : tr("&Show layer"));
+    get(ActionId::ToggleLayerVisibility)
+        ->setIcon(ui::icon(activeVisible ? QStringLiteral("layer-hidden") : QStringLiteral("layer-visible")));
+    get(ActionId::ToggleBackground)
+        ->setText(backgroundVisible ? tr("Hide &background") : tr("Show &background"));
 }

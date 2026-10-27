@@ -129,7 +129,8 @@ public:
     // Enabled state that depends on the document.
     void setSelectionAvailable(bool available);
     void setHistoryAvailable(bool canUndo, bool canRedo);
-    void setLayerState(qsizetype layerCount, qsizetype activeLayer);
+    void setLayerState(qsizetype layerCount, qsizetype activeLayer, bool activeVisible,
+                       bool backgroundVisible);
 
 private:
     void createActions(QWidget *window);

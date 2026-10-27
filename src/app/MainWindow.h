@@ -80,6 +80,11 @@ private:
     void showCustomRotate();
     void showImageProperties();
     void showEditColors();
+    void showBackgroundColor();
+    // Paint's colour dialog, remembering its custom colours; no value when cancelled.
+    std::optional<QColor> pickColor(const QColor &initial);
+    bool saveProjectAs();
+    void updateLayerState();
     void loadCustomColors();
     void showCanvasContextMenu(QPoint globalPosition);
     void setCursorPosition(std::optional<QPoint> position);

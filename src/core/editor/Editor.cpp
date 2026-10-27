@@ -1,5 +1,6 @@
 #include "editor/Editor.h"
 
+#include "io/OpenRaster.h"
 #include "tools/ClickTools.h"
 #include "tools/SelectionTool.h"
 #include "tools/ShapeTool.h"
@@ -8,6 +9,7 @@
 #include "tools/ToolSettings.h"
 
 #include <QFileInfo>
+#include <QPainter>
 
 #include <cmath>
 
@@ -102,6 +104,112 @@ void Editor::commitTool()
 void Editor::selectionChanged()
 {
     Q_EMIT selectionStateChanged();
+}
+
+void Editor::changeLayers(const QString &text, const std::function<void(Document &)> &change)
+{
+    commitTool();
+    m_selection->commit();
+    const Document before = m_document;
+    change(m_document);
+    m_history.recordDocumentChange(text, before);
+    Q_EMIT documentRestructured();
+}
+
+void Editor::addLayer()
+{
+    changeLayers(tr("Add layer"), [](Document &document) {
+        const qsizetype index = document.activeLayerIndex() + 1;
+        QImage image(document.size(), Document::LayerFormat);
+        image.fill(Qt::transparent);
+        document.insertLayer(index, Layer{document.nextLayerName(), image, true});
+        document.setActiveLayerIndex(index);
+    });
+}
+
+void Editor::duplicateLayer()
+{
+    changeLayers(tr("Duplicate layer"), [](Document &document) {
+        const qsizetype active = document.activeLayerIndex();
+        Layer copy = document.layer(active);
+        copy.name = document.nextLayerName();
+        document.insertLayer(active + 1, copy);
+        document.setActiveLayerIndex(active + 1);
+    });
+}
+
+void Editor::deleteLayer()
+{
+    if (m_document.layerCount() < 2) {
+        return;
+    }
+    changeLayers(tr("Delete layer"),
+                 [](Document &document) { document.removeLayer(document.activeLayerIndex()); });
+}
+
+void Editor::mergeLayerDown()
+{
+    if (m_document.activeLayerIndex() < 1) {
+        return;
+    }
+    changeLayers(tr("Merge down"), [](Document &document) {
+        const qsizetype upper = document.activeLayerIndex();
+        QPainter painter(&document.layer(upper - 1).image);
+        painter.drawImage(QPoint(), document.layer(upper).image);
+        painter.end();
+        document.removeLayer(upper);
+    });
+}
+
+void Editor::moveLayer(qsizetype from, qsizetype to)
+{
+    const qsizetype count = m_document.layerCount();
+    if (from == to || from < 0 || to < 0 || from >= count || to >= count) {
+        return;
+    }
+    changeLayers(tr("Move layer"), [from, to](Document &document) { document.moveLayer(from, to); });
+}
+
+void Editor::setLayerVisible(qsizetype index, bool visible)
+{
+    if (index < 0 || index >= m_document.layerCount() || m_document.layer(index).visible == visible) {
+        return;
+    }
+    changeLayers(visible ? tr("Show layer") : tr("Hide layer"),
+                 [index, visible](Document &document) { document.layer(index).visible = visible; });
+}
+
+void Editor::setActiveLayer(qsizetype index)
+{
+    if (index < 0 || index >= m_document.layerCount() || index == m_document.activeLayerIndex()) {
+        return;
+    }
+    // A moved selection or a shape belongs to the layer it was made on.
+    commitTool();
+    m_selection->commit();
+    m_document.setActiveLayerIndex(index);
+    Q_EMIT activeLayerChanged();
+}
+
+void Editor::setBackgroundVisible(bool visible)
+{
+    if (visible == m_document.isBackgroundVisible()) {
+        return;
+    }
+    changeLayers(visible ? tr("Show background") : tr("Hide background"),
+                 [visible](Document &document) { document.setBackgroundVisible(visible); });
+}
+
+void Editor::setBackgroundColor(const QColor &color)
+{
+    if (!color.isValid() || (color == m_document.backgroundColor() && m_document.isBackgroundVisible())) {
+        return;
+    }
+    // A new background colour is meant to be seen.
+    changeLayers(tr("Background color"), [color](Document &document) {
+        document.setBackgroundColor(color);
+        document.setBackgroundVisible(true);
+    });
 }
 
 void Editor::undo()
@@ -324,6 +432,15 @@ void Editor::newDocument(QSize size)
 
 QString Editor::open(const QString &path)
 {
+    if (isOpenRasterPath(path)) {
+        LoadedProject project = loadOpenRaster(path);
+        if (!project.document) {
+            return project.error;
+        }
+        replaceDocument(std::move(*project.document), QFileInfo(path).absoluteFilePath(),
+                        QFileInfo(path).size());
+        return {};
+    }
     LoadedImage loaded = loadImage(path);
     if (!loaded.error.isEmpty()) {
         return loaded.error;
@@ -340,7 +457,10 @@ QString Editor::open(const QString &path)
 QString Editor::save(const QString &path, const SaveFormat &format)
 {
     commitTool();
-    if (QString error = saveImage(m_document.composite(), path, format); !error.isEmpty()) {
+    // Projects keep the layers; images are flattened.
+    QString error = format.format == projectFormat().format ? saveOpenRaster(m_document, path)
+                                                            : saveImage(m_document.composite(), path, format);
+    if (!error.isEmpty()) {
         return error;
     }
     m_filePath = QFileInfo(path).absoluteFilePath();

@@ -43,6 +43,16 @@ public:
     const Layer &layer(qsizetype index) const { return m_layers.at(index); }
     Layer &layer(qsizetype index) { return m_layers[index]; }
     qsizetype addLayer(const QString &name);
+    // Inserts `layer` (document-sized) at `index`; the active layer stays the same layer.
+    void insertLayer(qsizetype index, Layer layer);
+    // Removes a layer (never the last one); the layer below becomes active if it was.
+    void removeLayer(qsizetype index);
+    // Moves a layer to `to`; the active layer stays the same layer.
+    void moveLayer(qsizetype from, qsizetype to);
+    // Replaces all layers (each document-sized, at least one) and picks the active one.
+    void setLayers(QList<Layer> layers, qsizetype active);
+    // "Layer N" with N one past the highest number in use.
+    QString nextLayerName() const;
 
     qsizetype activeLayerIndex() const { return m_activeLayer; }
     void setActiveLayerIndex(qsizetype index);

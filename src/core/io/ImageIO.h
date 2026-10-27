@@ -22,6 +22,9 @@ struct SaveFormat
 
 // Formats Paint offers when saving, in its order. More arrive with M8 (GIF, TIFF, HEIC, BMP depths).
 const QList<SaveFormat> &saveFormats();
+// Paint's "Save as project": layered OpenRaster, not in the Save as list.
+const SaveFormat &projectFormat();
+// Image formats and the project format.
 std::optional<SaveFormat> saveFormatForSuffix(const QString &suffix);
 std::optional<SaveFormat> saveFormatForPath(const QString &path);
 

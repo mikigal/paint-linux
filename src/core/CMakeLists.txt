@@ -15,6 +15,8 @@ add_library(paint_core STATIC
     io/ImageIO.h
     io/MimeImport.cpp
     io/MimeImport.h
+    io/OpenRaster.cpp
+    io/OpenRaster.h
     ops/FloodFill.cpp
     ops/FloodFill.h
     ops/ImageOps.cpp
@@ -44,4 +46,4 @@ add_library(paint_core STATIC
 target_include_directories(paint_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(paint_core
     PUBLIC Qt6::Core Qt6::Gui
-    PRIVATE paint_warnings)
+    PRIVATE paint_warnings PkgConfig::LIBZIP)

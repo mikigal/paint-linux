@@ -77,6 +77,21 @@ public:
     void convertToBlackAndWhite();
     void setResolution(int dotsPerMeter);
 
+    // Layers (indices count from the bottom). Each change is one undo step.
+    // A new empty layer above the active one, which it replaces as the active layer.
+    void addLayer();
+    void duplicateLayer();
+    void deleteLayer();
+    // Merges the active layer into the one below it.
+    void mergeLayerDown();
+    void moveLayer(qsizetype from, qsizetype to);
+    void setLayerVisible(qsizetype index, bool visible);
+    // Picking the layer to draw on is not an edit.
+    void setActiveLayer(qsizetype index);
+    void setBackgroundVisible(bool visible);
+    // Also shows a hidden background.
+    void setBackgroundColor(const QColor &color);
+
     void undo();
     void redo();
 
@@ -98,12 +113,15 @@ Q_SIGNALS:
     // A new or opened document replaced the old one (size and layers may differ).
     void documentReplaced();
     void zoomRequested(QPointF documentPosition, bool zoomIn);
+    void activeLayerChanged();
     void modifiedChanged(bool modified);
     void fileChanged();
 
 private:
     void replaceDocument(Document document, const QString &path, qint64 fileSize);
     void useSelectionTool();
+    // Finishes tool work, applies `change` to the document and records it as one undoable step.
+    void changeLayers(const QString &text, const std::function<void(Document &)> &change);
     // Applies `operation` to every layer as one undoable step.
     void transformDocument(const QString &text, const std::function<ImageOp(const QImage &)> &operation);
 

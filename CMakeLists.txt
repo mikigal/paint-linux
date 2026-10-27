@@ -20,6 +20,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Widgets Svg Network)
+# OpenRaster projects are zip archives.
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LIBZIP REQUIRED IMPORTED_TARGET libzip>=1.7)
 if(PAINT_AUTOMATION)
     # QPA input injection (qwindowsysteminterface.h) for the automation server.
     set(QT_NO_PRIVATE_MODULE_WARNING ON)

@@ -21,7 +21,7 @@ a Linux-native form).
 | Auto-hide toolbar | "Always show" / "Automatically hide" | View → Toolbar submenu + ribbon chevron | M1 | done |
 | Workspace | Grey area, centred white canvas, 8 resize handles | Same | M1 | done |
 | Left side panel | Floating vertical sliders: size; opacity (pencil, brush); eraser transparency; fill tolerance | Same, overlay cards driving size, opacity, eraser transparency and fill tolerance | M1/M2 | done |
-| Layers panel | Right strip, toggled from ribbon | `QDockWidget` on the right; strip UI done, operations in M7 | M7 | in progress |
+| Layers panel | Right strip, toggled from ribbon | `QDockWidget` on the right with every layer operation | M7 | done |
 | Status bar | Cursor pos, selection size, canvas size, file size · fit, zoom %, −, slider, + | `QStatusBar` with the same items | M1/M2 | done |
 | Settings page | App theme, AI watermark, About | Theme follows the system; Help → About | — | adapted |
 | Key tips | Alt / F10 overlays | Native menu mnemonics | M9 | adapted |
@@ -38,7 +38,7 @@ a Linux-native form).
 | Save | Ctrl+S; new images default to PNG | Same | M2 | done |
 | Save as → PNG, JPEG, BMP, GIF, Other format | Format submenu; F12 | Same; F12 and Ctrl+Shift+S. PNG, JPEG and 24-bit BMP done, GIF and more in M8 | M2/M8 | in progress |
 | Other format | Monochrome/16/256/24-bit BMP, JPEG, GIF, TIFF, PNG, HEIC | Same (HEIC via kimageformats) | M8 | todo |
-| Save as project | `.paint`, keeps layers | OpenRaster `.ora` (`.paint` is undocumented) | M7 | adapted |
+| Save as project | `.paint`, keeps layers | OpenRaster `.ora` (`.paint` is undocumented): layers, names, visibility, the active layer, the background and DPI; GIMP, Krita and MyPaint open it. Any OpenRaster file opens, nested stacks, offsets and opacity baked into layers | M7 | adapted |
 | Print → Print, Page setup, Print preview | Windows dialogs | `QPrintDialog`, `QPageSetupDialog`, `QPrintPreviewDialog` | M8 | todo |
 | Share | Windows share sheet | — | — | excluded |
 | Set as desktop background → Fill, Tile, Center | Sets wallpaper | XDG Wallpaper portal; modes pre-rendered to screen size | M8 | todo |
@@ -147,12 +147,12 @@ a Linux-native form).
 
 | Feature | Paint | Paint for Linux | M | Status |
 |---|---|---|---|---|
-| Add layer | "+", Ctrl+Shift+N | Same | M7 | todo |
-| Delete / Duplicate / Hide / Merge down | Layer context menu | Same | M7 | todo |
-| Reorder | Drag tiles | Same | M7 | todo |
-| Thumbnails, active highlight | Accent border | Accent from system palette | M7 | todo |
-| Background tile | Hide (Ctrl+Shift+H), change colour (Ctrl+Shift+B) | Same | M7 | todo |
-| Transparency | Checkerboard | Same | M7 | todo |
+| Add layer | "+", Ctrl+Shift+N | Same: above the active layer, which it replaces as active | M7 | done |
+| Delete / Duplicate / Hide / Merge down | Layer context menu | Same, also in the Layers menu; each one undo step | M7 | done |
+| Reorder | Drag tiles | Same, with a drop marker | M7 | done |
+| Thumbnails, active highlight | Accent border | Accent from system palette; hidden layers fade and show a crossed eye, the eye toggles them | M7 | done |
+| Background tile | Hide (Ctrl+Shift+H), change colour (Ctrl+Shift+B) | Same; a click on the tile changes the colour | M7 | done |
+| Transparency | Checkerboard | Same, on the canvas and the tiles | M7 | done |
 | Layer opacity / blend modes | Not supported | Not supported | — | n/a |
 
 ## Excluded (AI and Microsoft services)

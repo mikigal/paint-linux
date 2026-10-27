@@ -2,6 +2,8 @@
 
 #include <QPainter>
 
+#include <algorithm>
+
 namespace paint {
 
 Document::Document(QSize size, QColor background)
@@ -16,6 +18,66 @@ qsizetype Document::addLayer(const QString &name)
 {
     m_layers.append(Layer{name, makeTransparentImage(), true});
     return m_layers.size() - 1;
+}
+
+void Document::insertLayer(qsizetype index, Layer layer)
+{
+    Q_ASSERT(index >= 0 && index <= m_layers.size());
+    Q_ASSERT(layer.image.size() == m_size);
+    layer.image = layer.image.convertToFormat(LayerFormat);
+    m_layers.insert(index, std::move(layer));
+    if (index <= m_activeLayer && m_layers.size() > 1) {
+        ++m_activeLayer;
+    }
+}
+
+void Document::removeLayer(qsizetype index)
+{
+    Q_ASSERT(m_layers.size() > 1 && index >= 0 && index < m_layers.size());
+    m_layers.removeAt(index);
+    // Layers above shift down; a removed active layer hands over to the one below it.
+    if (m_activeLayer > index || (m_activeLayer == index && index > 0)) {
+        --m_activeLayer;
+    }
+}
+
+void Document::moveLayer(qsizetype from, qsizetype to)
+{
+    Q_ASSERT(from >= 0 && from < m_layers.size() && to >= 0 && to < m_layers.size());
+    if (from == to) {
+        return;
+    }
+    m_layers.move(from, to);
+    if (m_activeLayer == from) {
+        m_activeLayer = to;
+    } else if (from < m_activeLayer && to >= m_activeLayer) {
+        --m_activeLayer;
+    } else if (from > m_activeLayer && to <= m_activeLayer) {
+        ++m_activeLayer;
+    }
+}
+
+void Document::setLayers(QList<Layer> layers, qsizetype active)
+{
+    Q_ASSERT(!layers.isEmpty() && active >= 0 && active < layers.size());
+    for (Layer &layer : layers) {
+        Q_ASSERT(layer.image.size() == m_size);
+        layer.image = layer.image.convertToFormat(LayerFormat);
+    }
+    m_layers = std::move(layers);
+    m_activeLayer = active;
+}
+
+QString Document::nextLayerName() const
+{
+    static const QString prefix = QStringLiteral("Layer ");
+    int highest = 0;
+    for (const Layer &layer : m_layers) {
+        if (layer.name.startsWith(prefix)) {
+            highest = std::max(highest, layer.name.mid(prefix.size()).toInt());
+        }
+    }
+    return prefix + QString::number(highest + 1);
 }
 
 void Document::setActiveLayerIndex(qsizetype index)
