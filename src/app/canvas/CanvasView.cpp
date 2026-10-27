@@ -2,10 +2,14 @@
 
 #include "document/Document.h"
 #include "editor/Editor.h"
+#include "io/MimeImport.h"
+#include "tools/SelectionTool.h"
 #include "tools/ToolSettings.h"
 #include "ui/Icons.h"
 
 #include <QContextMenuEvent>
+#include <QDropEvent>
+#include <QMimeData>
 #include <QPainter>
 #include <QScrollBar>
 #include <QWheelEvent>
@@ -65,6 +69,9 @@ CanvasView::CanvasView(Editor *editor, QWidget *parent)
 
     connect(editor, &Editor::pixelsChanged, this, &CanvasView::handlePixelsChanged);
     connect(editor, &Editor::documentReplaced, this, &CanvasView::handleDocumentReplaced);
+    connect(editor, &Editor::documentRestructured, this, &CanvasView::handleDocumentRestructured);
+    connect(editor, &Editor::selectionStateChanged, viewport(), qOverload<>(&QWidget::update));
+    setAcceptDrops(true);
     connect(editor, &Editor::zoomRequested, this, [this](QPointF point, bool in) {
         const QPointF anchor = documentToViewport(QRectF(point, QSizeF())).topLeft();
         in ? zoomIn(anchor) : zoomOut(anchor);
@@ -103,6 +110,23 @@ void CanvasView::handleDocumentReplaced()
         zoomToActualSize();
     }
     viewport()->update();
+}
+
+void CanvasView::handleDocumentRestructured()
+{
+    // Crop, canvas size or their undo: same zoom, new picture.
+    m_composite = m_editor->document().composite();
+    updateScrollBars();
+    viewport()->update();
+}
+
+QTransform CanvasView::documentToViewportTransform() const
+{
+    const QRectF canvas = canvasRect();
+    QTransform transform;
+    transform.translate(canvas.left(), canvas.top());
+    transform.scale(m_zoom, m_zoom);
+    return transform;
 }
 
 QSizeF CanvasView::scaledCanvasSize() const
@@ -257,6 +281,8 @@ void CanvasView::paintEvent(QPaintEvent *event)
         painter.drawRect(handle.adjusted(0.5, 0.5, -0.5, -0.5));
     }
 
+    paintSelection(painter);
+
     if (const std::optional<QRectF> outline = brushOutline()) {
         // A dark ring inside a light one stays visible on any colour.
         painter.setRenderHint(QPainter::Antialiasing, true);
@@ -269,6 +295,46 @@ void CanvasView::paintEvent(QPaintEvent *event)
             square ? painter.drawRect(ring) : painter.drawEllipse(ring);
         }
     }
+}
+
+void CanvasView::paintSelection(QPainter &painter)
+{
+    const SelectionTool *selection = m_editor->selection();
+    // Paint hides the outline while the selection is being moved, resized or rotated.
+    if (!selection->hasSelection() || selection->isTransforming()) {
+        return;
+    }
+    const QTransform toViewport = documentToViewportTransform();
+    const QPainterPath outline = toViewport.map(selection->outline());
+    painter.save();
+    painter.setRenderHint(QPainter::Antialiasing, false);
+    painter.setBrush(Qt::NoBrush);
+    painter.setPen(QPen(Qt::white, 1));
+    painter.drawPath(outline);
+    QPen dashes(QColor(0x1a, 0x1a, 0x1a), 1, Qt::CustomDashLine);
+    dashes.setDashPattern({4, 4});
+    painter.setPen(dashes);
+    painter.drawPath(outline);
+
+    if (!selection->isDefining()) {
+        const QList<QPointF> handles = selection->handlePositions(1.0 / m_zoom);
+        QList<QPointF> points;
+        for (const QPointF &handle : handles) {
+            points.append(toViewport.map(handle));
+        }
+        painter.setRenderHint(QPainter::Antialiasing, true);
+        QColor line = palette().color(QPalette::Highlight);
+        // The rotate handle hangs above the top edge on a short stem.
+        painter.setPen(QPen(line, 1));
+        painter.drawLine(points.at(1), points.last());
+        painter.setBrush(Qt::white);
+        const qreal half = SelectionTool::HandleRadius - 1;
+        for (qsizetype i = 0; i + 1 < points.size(); ++i) {
+            painter.drawRect(QRectF(points.at(i) - QPointF(half, half), QSizeF(2 * half, 2 * half)));
+        }
+        painter.drawEllipse(points.last(), half + 1, half + 1);
+    }
+    painter.restore();
 }
 
 void CanvasView::resizeEvent(QResizeEvent *event)
@@ -295,7 +361,7 @@ void CanvasView::wheelEvent(QWheelEvent *event)
 
 PointerEvent CanvasView::pointerEvent(const QMouseEvent *event, Qt::MouseButton button) const
 {
-    return PointerEvent{viewportToDocument(event->position()), button, event->modifiers()};
+    return PointerEvent{viewportToDocument(event->position()), button, event->modifiers(), 1.0 / m_zoom};
 }
 
 void CanvasView::mousePressEvent(QMouseEvent *event)
@@ -326,6 +392,8 @@ void CanvasView::mouseMoveEvent(QMouseEvent *event)
     setHoverPosition(point);
     if (m_drawingButton != Qt::NoButton) {
         m_editor->currentTool()->move(pointerEvent(event, Qt::NoButton));
+    } else if (isSelectionTool(m_editor->settings().tool())) {
+        updateSelectionCursor(point);
     }
 }
 
@@ -341,6 +409,11 @@ void CanvasView::mouseReleaseEvent(QMouseEvent *event)
 
 void CanvasView::keyPressEvent(QKeyEvent *event)
 {
+    if (m_drawingButton == Qt::NoButton &&
+        m_editor->currentTool()->keyPress(event->key(), event->modifiers())) {
+        event->accept();
+        return;
+    }
     if (event->key() == Qt::Key_Escape) {
         m_editor->cancelTool();
         m_drawingButton = Qt::NoButton;
@@ -380,6 +453,52 @@ void CanvasView::changeEvent(QEvent *event)
     if (event->type() == QEvent::PaletteChange) {
         updateCursor();
     }
+}
+
+void CanvasView::updateSelectionCursor(QPointF documentPosition)
+{
+    const SelectionTool *selection = m_editor->selection();
+    const SelectionHandle handle = selection->hitTest(documentPosition, 1.0 / m_zoom);
+    switch (handle) {
+    case SelectionHandle::None:
+        viewport()->setCursor(Qt::CrossCursor);
+        return;
+    case SelectionHandle::Inside:
+        viewport()->setCursor(Qt::SizeAllCursor);
+        return;
+    case SelectionHandle::Rotate:
+        viewport()->setCursor(ui::toolCursor(QStringLiteral("rotate-180"), QPointF(10, 10)));
+        return;
+    default:
+        break;
+    }
+    // Resize cursors follow the handle's direction, turned with the selection.
+    const int index = int(handle) - int(SelectionHandle::TopLeft); // 0..7 clockwise from the top-left
+    const qreal direction = std::fmod(135 - index * 45 + 360 - selection->angle() + 720, 180.0);
+    static const Qt::CursorShape shapes[] = {Qt::SizeHorCursor, Qt::SizeBDiagCursor, Qt::SizeVerCursor,
+                                             Qt::SizeFDiagCursor};
+    viewport()->setCursor(shapes[int(std::round(direction / 45)) % 4]);
+}
+
+void CanvasView::dragEnterEvent(QDragEnterEvent *event)
+{
+    if (mimeDataHasImage(event->mimeData(), true)) {
+        event->acceptProposedAction();
+    }
+}
+
+void CanvasView::dragMoveEvent(QDragMoveEvent *event)
+{
+    if (mimeDataHasImage(event->mimeData(), true)) {
+        event->acceptProposedAction();
+    }
+}
+
+void CanvasView::dropEvent(QDropEvent *event)
+{
+    const QPointF point = viewportToDocument(event->position());
+    Q_EMIT dropped(event->mimeData(), point, m_editor->document().rect().contains(point.toPoint()));
+    event->acceptProposedAction();
 }
 
 void CanvasView::updateCursor()

@@ -12,6 +12,8 @@ namespace paint {
 class Editor;
 }
 
+class QMimeData;
+
 // The workspace: the document's canvas centred on a grey background, with Paint's eight
 // resize handles, zooming and scrolling. Pointer input on the canvas drives the active tool.
 class CanvasView : public QAbstractScrollArea
@@ -44,6 +46,9 @@ Q_SIGNALS:
     // The document pixel under the pointer, or no value when the pointer is off the canvas.
     void cursorPositionChanged(std::optional<QPoint> position);
     void contextMenuRequested(QPoint globalPosition);
+    // Something was dropped: `onCanvas` tells whether it landed on the image itself. The payload
+    // is only valid during the signal.
+    void dropped(const QMimeData *mime, QPointF documentPosition, bool onCanvas);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -57,10 +62,16 @@ protected:
     void leaveEvent(QEvent *event) override;
     void contextMenuEvent(QContextMenuEvent *event) override;
     void changeEvent(QEvent *event) override;
+    void dragEnterEvent(QDragEnterEvent *event) override;
+    void dragMoveEvent(QDragMoveEvent *event) override;
+    void dropEvent(QDropEvent *event) override;
 
 private:
     void handlePixelsChanged(const QRect &area);
     void handleDocumentReplaced();
+    void handleDocumentRestructured();
+    void paintSelection(QPainter &painter);
+    QTransform documentToViewportTransform() const;
     QSizeF scaledCanvasSize() const;
     void updateScrollBars();
     QList<QRectF> handleRects() const;
@@ -69,6 +80,7 @@ private:
     std::optional<QRectF> brushOutline() const;
     void setHoverPosition(std::optional<QPointF> position);
     void updateCursor();
+    void updateSelectionCursor(QPointF documentPosition);
 
     paint::Editor *m_editor;
     QImage m_composite;

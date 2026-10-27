@@ -50,6 +50,40 @@ private:
     bool m_firstRedo = true;
 };
 
+class DocumentChangeCommand : public QUndoCommand
+{
+public:
+    DocumentChangeCommand(History *history, const QString &text, Document before, Document after)
+        : QUndoCommand(text)
+        , m_history(history)
+        , m_before(std::move(before))
+        , m_after(std::move(after))
+    {}
+
+    void undo() override { apply(m_before); }
+
+    void redo() override
+    {
+        if (m_firstRedo) {
+            m_firstRedo = false;
+            return;
+        }
+        apply(m_after);
+    }
+
+private:
+    void apply(const Document &state)
+    {
+        *m_history->m_document = state;
+        Q_EMIT m_history->documentRestructured();
+    }
+
+    History *m_history;
+    Document m_before;
+    Document m_after;
+    bool m_firstRedo = true;
+};
+
 History::History(Document *document, QObject *parent)
     : QObject(parent)
     , m_document(document)
@@ -66,6 +100,11 @@ void History::recordPixelEdit(const QString &text, qsizetype layer, const QRect 
     const QPoint offset = clipped.topLeft() - area.topLeft();
     m_stack.push(new PixelEditCommand(this, text, layer, clipped, before.copy(QRect(offset, clipped.size())),
                                       m_document->layer(layer).image.copy(clipped)));
+}
+
+void History::recordDocumentChange(const QString &text, const Document &before)
+{
+    m_stack.push(new DocumentChangeCommand(this, text, before, *m_document));
 }
 
 } // namespace paint

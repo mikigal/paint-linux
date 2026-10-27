@@ -5,15 +5,17 @@
 #   tools/verify.sh --tidy     additionally run clang-tidy on src/
 #   tools/verify.sh --asan     additionally build and test under AddressSanitizer + UBSan
 #   tools/verify.sh --fast     skip the visual regression scenarios
+#   tools/verify.sh --integration  also run tests/integration (headless KWin, wl-clipboard)
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-tidy=0 asan=0 visual=1
+tidy=0 asan=0 visual=1 integration=0
 for arg in "$@"; do
     case "$arg" in
         --tidy) tidy=1 ;;
         --asan) asan=1 ;;
         --fast) visual=0 ;;
+        --integration) integration=1 ;;
         *) echo "verify: unknown option $arg" >&2; exit 2 ;;
     esac
 done
@@ -32,11 +34,18 @@ mapfile -t sources < <(git ls-files --cached --others --exclude-standard -- '*.c
 clang-format --dry-run --Werror "${sources[@]}"
 
 step "Python tools"
-python3 -m py_compile tools/paintctl.py tests/visual/*.py
+python3 -m py_compile tools/paintctl.py tests/visual/*.py tests/integration/*.py
 
 if [[ $visual == 1 ]]; then
     step "Visual regression"
     tests/visual/run.py
+fi
+
+if [[ $integration == 1 ]]; then
+    step "Integration (headless KWin)"
+    for test in tests/integration/*.py; do
+        "$test"
+    done
 fi
 
 if [[ $tidy == 1 ]]; then

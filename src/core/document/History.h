@@ -33,13 +33,20 @@ public:
     // Records an edit that has already been applied to `layer`: `before` holds the layer's
     // pixels in `area` as they were before the edit.
     void recordPixelEdit(const QString &text, qsizetype layer, const QRect &area, const QImage &before);
+    // Records a change of the document's structure (size, layers) that has already been applied;
+    // `before` is the document as it was. Layer images are implicitly shared, so unchanged layers
+    // cost no memory.
+    void recordDocumentChange(const QString &text, const Document &before);
 
 Q_SIGNALS:
     // Pixels in `area` changed because of undo or redo.
     void documentChanged(const QRect &area);
+    // Undo or redo replaced the document's structure (its size or layers may differ).
+    void documentRestructured();
 
 private:
     friend class PixelEditCommand;
+    friend class DocumentChangeCommand;
 
     Document *m_document;
     QUndoStack m_stack;

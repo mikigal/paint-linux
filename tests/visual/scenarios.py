@@ -45,6 +45,17 @@ def slider(name: str, value: int) -> Step:
 # Large split buttons open their menu from the chevron in their lower part.
 CHEVRON = {"at": [22, 53]}
 
+# A small picture to select from: blue background with a thick red V.
+PICTURE: list[Step] = [
+    ("invoke", {"action": "action.tool.fill"}), ("click", {"target": "ribbon.palette.7"}),
+    ("click", {"relativeTo": "canvasView.viewport", "x": 900, "y": 500}),
+    ("invoke", {"action": "action.tool.brush"}), ("click", {"target": "ribbon.palette.3"}),
+    ("property", {"target": "sidePanel.size.slider", "name": "value", "value": 25}),
+]
+PICTURE.append(draw([[200, 150], [350, 300], [500, 150]], steps=20))
+# Moves the pointer off the canvas so hover effects do not depend on timing.
+AWAY: Step = ("mouse", {"action": "move", "x": 1200, "y": 700})
+
 SCENARIOS: list[Scenario] = [
     # Whole window
     Scenario("main-window-light"),
@@ -106,6 +117,30 @@ SCENARIOS: list[Scenario] = [
         draw([[625, 305], [640, 311], [652, 324]]), invoke("view.zoomIn"), invoke("view.zoomIn"),
         invoke("view.zoomIn"),
     ]),
+    # Selections (on a picture: a red V on blue)
+    Scenario("select-rectangle-light", steps=[*PICTURE, invoke("tool.rectangleSelect"),
+                                              ("drag", {"relativeTo": "canvasView.viewport", "from": [180, 120],
+                                                        "to": [520, 320]}), AWAY]),
+    Scenario("select-moved-light", steps=[*PICTURE, invoke("tool.rectangleSelect"),
+                                          ("drag", {"relativeTo": "canvasView.viewport", "from": [180, 120],
+                                                    "to": [520, 320]}),
+                                          ("drag", {"relativeTo": "canvasView.viewport", "from": [350, 220],
+                                                    "to": [650, 300]}), AWAY]),
+    Scenario("select-rotated-dark", theme="dark", steps=[
+        *PICTURE, invoke("tool.rectangleSelect"),
+        ("drag", {"relativeTo": "canvasView.viewport", "from": [180, 120], "to": [520, 320]}),
+        # The rotate handle sits 24 px above the middle of the top edge.
+        ("drag", {"relativeTo": "canvasView.viewport", "from": [350, 96], "to": [560, 150], "modifiers": "shift"}),
+        AWAY]),
+    Scenario("select-freeform-light", steps=[*PICTURE, invoke("tool.freeformSelect"),
+                                             draw([[200, 150], [450, 110], [560, 300], [300, 340], [200, 150]])]),
+    Scenario("context-menu-selection-light", steps=[
+        *PICTURE, invoke("tool.rectangleSelect"),
+        ("drag", {"relativeTo": "canvasView.viewport", "from": [180, 120], "to": [520, 320]}),
+        ("click", {"relativeTo": "canvasView.viewport", "x": 350, "y": 220, "button": "right"})]),
+    Scenario("drop-image-light", steps=[
+        ("drop", {"relativeTo": "canvasView.viewport", "x": 300, "y": 200,
+                  "imagePath": "tests/golden/document/composite-two-layers.png"}), AWAY]),
     # Dialogs
     Scenario("dialog-about-light", steps=[invoke("help.about")], target="active"),
     Scenario("dialog-save-prompt-light", steps=[draw([[100, 100], [200, 200]]), invoke("file.new")],

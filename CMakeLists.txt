@@ -19,11 +19,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Widgets Svg)
+find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Widgets Svg Network)
 if(PAINT_AUTOMATION)
     # QPA input injection (qwindowsysteminterface.h) for the automation server.
     set(QT_NO_PRIVATE_MODULE_WARNING ON)
-    find_package(Qt6 6.8 REQUIRED COMPONENTS Network Test GuiPrivate)
+    find_package(Qt6 6.8 REQUIRED COMPONENTS Test GuiPrivate)
 endif()
 if(PAINT_BUILD_TESTS)
     find_package(Qt6 6.8 REQUIRED COMPONENTS Test)

@@ -5,6 +5,7 @@
 #include <QColor>
 #include <QImage>
 #include <QList>
+#include <QPainterPath>
 #include <QRect>
 #include <QSize>
 
@@ -37,6 +38,12 @@ public:
     qsizetype activeLayerIndex() const { return m_activeLayer; }
     void setActiveLayerIndex(qsizetype index);
     Layer &activeLayer() { return m_layers[m_activeLayer]; }
+
+    // Changes the canvas size keeping the top-left corner; new areas are transparent on every
+    // layer (the background colour shows through).
+    void resizeCanvas(QSize size);
+    // Cuts the canvas down to `area`; pixels outside `shape` (if given) become transparent.
+    void crop(const QRect &area, const QPainterPath &shape = {});
 
     // Flattens the visible background and layers within `area` (document
     // coordinates). The result has the size of the clipped area.

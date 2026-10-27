@@ -22,7 +22,7 @@ a Linux-native form).
 | Workspace | Grey area, centred white canvas, 8 resize handles | Same | M1 | done |
 | Left side panel | Floating vertical sliders: size; opacity (pencil, brush); eraser transparency; fill tolerance | Same, overlay cards driving size, opacity, eraser transparency and fill tolerance | M1/M2 | done |
 | Layers panel | Right strip, toggled from ribbon | `QDockWidget` on the right; strip UI done, operations in M7 | M7 | in progress |
-| Status bar | Cursor pos, selection size, canvas size, file size · fit, zoom %, −, slider, + | `QStatusBar` with the same items; selection size arrives with selections (M3) | M1/M2 | in progress |
+| Status bar | Cursor pos, selection size, canvas size, file size · fit, zoom %, −, slider, + | `QStatusBar` with the same items | M1/M2 | done |
 | Settings page | App theme, AI watermark, About | Theme follows the system; Help → About | — | adapted |
 | Key tips | Alt / F10 overlays | Native menu mnemonics | M9 | adapted |
 | Theme | Light / Dark / System | System colour scheme (Breeze etc.), icons recoloured for dark | M1 | done |
@@ -33,7 +33,7 @@ a Linux-native form).
 |---|---|---|---|---|
 | New | Ctrl+N, asks to save changes | Same | M2 | done |
 | Open | Ctrl+O, Windows file dialog | Ctrl+O, native/portal `QFileDialog` | M2 | done |
-| Import to canvas → From a file | Pastes a file as a floating selection | Same | M3 | todo |
+| Import to canvas → From a file | Pastes a file as a floating selection | Same | M3 | done |
 | Recent | Recent files submenu | Same (`QSettings`) | M8 | todo |
 | Save | Ctrl+S; new images default to PNG | Same | M2 | done |
 | Save as → PNG, JPEG, BMP, GIF, Other format | Format submenu; F12 | Same; F12 and Ctrl+Shift+S. PNG, JPEG and 24-bit BMP done, GIF and more in M8 | M2/M8 | in progress |
@@ -50,12 +50,12 @@ a Linux-native form).
 | Feature | Paint | Paint for Linux | M | Status |
 |---|---|---|---|---|
 | Undo / Redo | Ctrl+Z / Ctrl+Y | Plus Ctrl+Shift+Z | M2 | done |
-| Cut / Copy / Paste | Ctrl+X/C/V; without a selection copies the current layer | Same | M3 | todo |
-| Copy visible layers | Ctrl+Shift+C | Same | M7 | todo |
-| Paste images from other apps | Any clipboard bitmap | `image/*`, `application/x-qt-image`, `text/uri-list` files, HTML `<img>` | M3 | todo |
-| Paste larger than canvas | Offers to enlarge the canvas | Same | M3 | todo |
-| Drag and drop into the app | Opens/imports dropped files | Drop on image = import as selection; elsewhere = open; browser images/URLs | M3 | todo |
-| Paste state | — | Paste enabled only when the clipboard holds usable data | M3 | todo |
+| Cut / Copy / Paste | Ctrl+X/C/V; without a selection copies the current layer | Same | M3 | done |
+| Copy visible layers | Ctrl+Shift+C | Same (merges what is visible, background included) | M7 | done |
+| Paste images from other apps | Any clipboard bitmap | `image/*`, `application/x-qt-image`, `text/uri-list` files, HTML `<img>` data URIs; tested against wl-copy in a headless KWin | M3 | done |
+| Paste larger than canvas | Offers to enlarge the canvas | Same | M3 | done |
+| Drag and drop into the app | Opens/imports dropped files | Drop on image = import as selection at that point; elsewhere = open; browser image links are downloaded | M3 | done |
+| Paste state | — | Paste enabled only when the clipboard holds usable data | M3 | done |
 | Extra Edit entries | Only in ribbon/context menu | Native menus also list Paint's ribbon/context-menu commands; Image menu for crop/resize/rotate/flip/invert | M1 | done |
 
 ## View menu
@@ -74,14 +74,14 @@ a Linux-native form).
 
 | Feature | Paint | Paint for Linux | M | Status |
 |---|---|---|---|---|
-| Rectangle / Free-form | Select split button | Same | M3 | todo |
-| Select all / Invert selection / Delete | Ctrl+A / — / Del | Same | M3 | todo |
-| Transparent selection | Toggle: colour 2 becomes transparent in the selection | Same | M3 | todo |
-| Move / resize selection | Handles | Same | M3 | todo |
-| Free rotation | Rotate handle above selection | Same | M3 | todo |
-| Nudge | Arrow keys, 1 px | Same | M3 | todo |
-| Duplicate | Ctrl+drag *(verify)* | Same | M3 | todo |
-| Crop to selection | Ctrl+Shift+X | Same | M3 | todo |
+| Rectangle / Free-form | Select split button | Same | M3 | done |
+| Select all / Invert selection / Delete | Ctrl+A / — / Del | Same | M3 | done |
+| Transparent selection | Toggle: colour 2 becomes transparent in the selection | Same | M3 | done |
+| Move / resize selection | Handles | Same; moved pixels leave transparency | M3 | done |
+| Free rotation | Rotate handle above selection | Rotate handle above the selection; Shift snaps to 15° | M3 | done |
+| Nudge | Arrow keys, 1 px | Same | M3 | done |
+| Duplicate | Ctrl+drag *(verify)* | Same | M3 | done |
+| Crop to selection | Ctrl+Shift+X | Same; free-form crops clear what lies outside the outline | M3 | done |
 | Object select | AI | — | — | excluded |
 
 ## Image group

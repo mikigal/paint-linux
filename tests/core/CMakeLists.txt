@@ -5,3 +5,5 @@ paint_add_test(tst_shapegeometry SOURCES tst_shapegeometry.cpp LIBRARIES paint_c
 paint_add_test(tst_floodfill SOURCES tst_floodfill.cpp LIBRARIES paint_core)
 paint_add_test(tst_tools SOURCES tst_tools.cpp LIBRARIES paint_core)
 paint_add_test(tst_imageio SOURCES tst_imageio.cpp LIBRARIES paint_core)
+paint_add_test(tst_selection SOURCES tst_selection.cpp LIBRARIES paint_core)
+paint_add_test(tst_mimeimport SOURCES tst_mimeimport.cpp LIBRARIES paint_core)

@@ -15,6 +15,8 @@ struct PointerEvent
     QPointF position; // document coordinates; pixel (x, y) covers [x, x+1) × [y, y+1)
     Qt::MouseButton button = Qt::NoButton;
     Qt::KeyboardModifiers modifiers;
+    // Size of one screen pixel in document units (1 / zoom), for zoom-independent hit testing.
+    qreal screenPixel = 1.0;
 };
 
 // What a tool may touch. Implemented by Editor; tests can provide their own.
@@ -30,6 +32,8 @@ public:
     virtual void documentChanged(const QRect &area) = 0;
     // The magnifier asks the view to zoom around a document point.
     virtual void requestZoom(QPointF documentPosition, bool zoomIn) = 0;
+    // The selection (outline, handles or floating state) changed.
+    virtual void selectionChanged() {}
 };
 
 // An interactive tool driven by pointer events on the canvas. Drawing with the left button uses
@@ -47,8 +51,17 @@ public:
     virtual void press(const PointerEvent &event) = 0;
     virtual void move(const PointerEvent &) {}
     virtual void release(const PointerEvent &) {}
-    // Abandons an unfinished action and restores the document (Escape, tool switch, undo).
+    // Abandons an unfinished action and restores the document (undo, a second mouse button).
     virtual void cancel() {}
+    // Finishes pending work, e.g. places a moved selection (tool switch, saving).
+    virtual void commit() {}
+    // Keyboard input while the canvas has focus; returns whether the key was used.
+    virtual bool keyPress(int key, Qt::KeyboardModifiers modifiers)
+    {
+        Q_UNUSED(key)
+        Q_UNUSED(modifiers)
+        return false;
+    }
     // Whether an action (e.g. a stroke) is in progress.
     virtual bool isActive() const { return false; }
 

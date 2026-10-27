@@ -8,4 +8,6 @@ paint_add_test(tst_drawing SOURCES tst_drawing.cpp LIBRARIES paint_app)
 
 if(PAINT_AUTOMATION)
     paint_add_test(tst_automation SOURCES tst_automation.cpp LIBRARIES paint_app)
+    # Drops are delivered through the platform layer (QPA), which needs Qt's private Gui API.
+    paint_add_test(tst_clipboard SOURCES tst_clipboard.cpp LIBRARIES paint_app Qt6::GuiPrivate)
 endif()

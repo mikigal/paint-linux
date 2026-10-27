@@ -85,6 +85,13 @@ void StrokeTool::cancel()
     }
 }
 
+void StrokeTool::commit()
+{
+    if (isActive()) {
+        finish();
+    }
+}
+
 void StrokeTool::addSegment(QPointF from, QPointF to)
 {
     QPainter painter(&m_stroke);

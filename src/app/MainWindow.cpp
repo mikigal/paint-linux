@@ -6,10 +6,13 @@
 #include "canvas/SidePanel.h"
 #include "editor/Editor.h"
 #include "io/ImageIO.h"
+#include "io/MimeImport.h"
 #include "panels/LayersDock.h"
+#include "platform/RemoteImageLoader.h"
 #include "ribbon/PaintRibbon.h"
 #include "ribbon/Ribbon.h"
 #include "ribbon/RibbonHost.h"
+#include "tools/SelectionTool.h"
 #include "tools/ToolSettings.h"
 #include "ui/Icons.h"
 #include "widgets/ZoomControls.h"
@@ -17,7 +20,10 @@
 #include <QAbstractButton>
 #include <QAction>
 #include <QApplication>
+#include <QClipboard>
 #include <QCloseEvent>
+#include <QDragEnterEvent>
+#include <QDropEvent>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QHBoxLayout>
@@ -26,6 +32,7 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QMimeData>
 #include <QPushButton>
 #include <QSet>
 #include <QStandardPaths>
@@ -74,11 +81,14 @@ MainWindow::MainWindow(QWidget *parent)
     , m_canvas(new CanvasView(m_editor, this))
     , m_sidePanel(new SidePanel(m_settings, m_canvas))
     , m_layers(new LayersDock(&m_editor->document(), m_actions, this))
+    , m_remoteImages(new RemoteImageLoader(this))
 {
     setObjectName(QStringLiteral("mainWindow"));
     resize(DefaultWindowSize);
 
     setCentralWidget(m_canvas);
+    // Files dropped anywhere outside the image itself are opened.
+    setAcceptDrops(true);
     addDockWidget(Qt::RightDockWidgetArea, m_layers);
     m_layers->hide();
 
@@ -88,6 +98,8 @@ MainWindow::MainWindow(QWidget *parent)
     connectActions();
     updateWindowTitle();
     updateDocumentInfo();
+    updateSelectionInfo();
+    updatePasteAvailability();
 }
 
 MainWindow::~MainWindow()
@@ -270,6 +282,15 @@ void MainWindow::connectActions()
     on(ActionId::SaveAsBmp, [this] { saveImageAs(QStringLiteral("bmp")); });
     on(ActionId::Undo, [this] { m_editor->undo(); });
     on(ActionId::Redo, [this] { m_editor->redo(); });
+    on(ActionId::Cut, [this] { copyToClipboard(m_editor->cutSelection()); });
+    on(ActionId::Copy, [this] { copyToClipboard(m_editor->copySelection(false)); });
+    on(ActionId::CopyVisibleLayers, [this] { copyToClipboard(m_editor->copySelection(true)); });
+    on(ActionId::Paste, &MainWindow::pasteFromClipboard);
+    on(ActionId::ImportFromFile, &MainWindow::importFromFile);
+    on(ActionId::SelectAll, [this] { m_editor->selectAll(); });
+    on(ActionId::InvertSelection, [this] { m_editor->invertSelection(); });
+    on(ActionId::DeleteSelection, [this] { m_editor->deleteSelection(); });
+    on(ActionId::Crop, [this] { m_editor->cropToSelection(); });
     on(ActionId::About, &MainWindow::showAbout);
     on(ActionId::AboutQt, &QApplication::aboutQt);
     on(ActionId::ZoomIn, [this] { m_canvas->zoomIn(); });
@@ -301,6 +322,18 @@ void MainWindow::connectActions()
         updateDocumentInfo();
         m_layers->refresh();
     });
+    connect(m_editor, &Editor::documentRestructured, this, [this] {
+        updateDocumentInfo();
+        m_layers->refresh();
+    });
+    connect(m_editor, &Editor::selectionStateChanged, this, &MainWindow::updateSelectionInfo);
+    connect(QGuiApplication::clipboard(), &QClipboard::dataChanged, this,
+            &MainWindow::updatePasteAvailability);
+    connect(m_canvas, &CanvasView::dropped, this,
+            [this](const QMimeData *mime, QPointF position, bool onCanvas) {
+                // On the image: place it there. Next to it: open a dropped file like a drop on the window.
+                importMimeData(mime, onCanvas ? std::optional<QPointF>(position) : std::nullopt, !onCanvas);
+            });
     // Layer thumbnails follow edits, but not on every pointer move.
     auto *thumbnailTimer = new QTimer(this);
     thumbnailTimer->setSingleShot(true);
@@ -323,6 +356,15 @@ void MainWindow::connectActions()
         ActionId::SaveAsBmp,
         ActionId::Undo,
         ActionId::Redo,
+        ActionId::Cut,
+        ActionId::Copy,
+        ActionId::CopyVisibleLayers,
+        ActionId::Paste,
+        ActionId::ImportFromFile,
+        ActionId::SelectAll,
+        ActionId::InvertSelection,
+        ActionId::DeleteSelection,
+        ActionId::Crop,
         ActionId::About,
         ActionId::AboutQt,
         ActionId::ZoomIn,
@@ -385,6 +427,129 @@ void MainWindow::showCanvasContextMenu(QPoint globalPosition)
     menu.addAction(m_actions->get(ActionId::ResizeSkew));
     menu.addAction(m_actions->get(ActionId::InvertColors));
     menu.exec(globalPosition);
+}
+
+void MainWindow::updateSelectionInfo()
+{
+    const SelectionTool *selection = m_editor->selection();
+    const bool selected = selection->hasSelection();
+    m_actions->setSelectionAvailable(selected);
+    const QRect bounds = selection->bounds();
+    m_selectionLabel->setText(selected ? tr("%1 × %2px").arg(bounds.width()).arg(bounds.height())
+                                       : QString());
+}
+
+void MainWindow::updatePasteAvailability()
+{
+    m_actions->get(ActionId::Paste)
+        ->setEnabled(mimeDataHasImage(QGuiApplication::clipboard()->mimeData(), true));
+}
+
+void MainWindow::copyToClipboard(const QImage &image)
+{
+    if (image.isNull()) {
+        return;
+    }
+    // Qt offers the image to other applications as image/png, image/bmp and more.
+    auto *mime = new QMimeData;
+    mime->setImageData(image.convertToFormat(QImage::Format_ARGB32));
+    QGuiApplication::clipboard()->setMimeData(mime);
+}
+
+void MainWindow::pasteFromClipboard()
+{
+    importMimeData(QGuiApplication::clipboard()->mimeData(), std::nullopt, false);
+}
+
+void MainWindow::importFromFile()
+{
+    const QString directory = m_editor->filePath().isEmpty()
+                                  ? QStandardPaths::writableLocation(QStandardPaths::PicturesLocation)
+                                  : QFileInfo(m_editor->filePath()).absolutePath();
+    const QString path = QFileDialog::getOpenFileName(this, tr("Import to canvas"), directory,
+                                                      openNameFilters().join(QStringLiteral(";;")));
+    if (path.isEmpty()) {
+        return;
+    }
+    const LoadedImage loaded = loadImage(path);
+    if (!loaded.error.isEmpty()) {
+        QMessageBox::warning(this, QApplication::applicationDisplayName(), loaded.error);
+        return;
+    }
+    pasteImage(loaded.image);
+}
+
+void MainWindow::importMimeData(const QMimeData *mime, std::optional<QPointF> topLeft, bool openFiles)
+{
+    if (const std::optional<ImportedImage> imported = imageFromMimeData(mime)) {
+        // Work outside the drop or paste handler: opening may ask about unsaved work.
+        QTimer::singleShot(0, this, [this, imported = *imported, topLeft, openFiles] {
+            if (openFiles && !imported.path.isEmpty()) {
+                openFile(imported.path);
+            } else {
+                pasteImage(imported.image, topLeft);
+            }
+        });
+        return;
+    }
+    if (const QUrl url = remoteImageUrl(mime); url.isValid()) {
+        statusBar()->showMessage(tr("Downloading %1…").arg(url.host()));
+        m_remoteImages->load(url, [this, topLeft](const QImage &image, const QString &error) {
+            statusBar()->clearMessage();
+            if (image.isNull()) {
+                QMessageBox::warning(this, QApplication::applicationDisplayName(),
+                                     tr("The image could not be downloaded: %1").arg(error));
+                return;
+            }
+            pasteImage(image, topLeft);
+        });
+    }
+}
+
+bool MainWindow::pasteImage(const QImage &image, std::optional<QPointF> topLeft)
+{
+    if (image.isNull()) {
+        return false;
+    }
+    // Paint pastes at the top-left corner of the visible part of the canvas.
+    QPointF position = topLeft.value_or(m_canvas->viewportToDocument(QPointF(0, 0)));
+    position = QPointF(std::max(0.0, std::floor(position.x())), std::max(0.0, std::floor(position.y())));
+    const QSize canvas = m_editor->document().size();
+    bool enlarge = false;
+    if (image.width() > canvas.width() || image.height() > canvas.height()) {
+        QMessageBox box(QMessageBox::Question, QApplication::applicationDisplayName(),
+                        tr("The image you're pasting is larger than the canvas."), QMessageBox::NoButton,
+                        this);
+        box.setObjectName(QStringLiteral("dialog.enlargeCanvas"));
+        box.setInformativeText(tr("Do you want to enlarge the canvas to fit it?"));
+        QPushButton *grow = box.addButton(tr("&Enlarge canvas"), QMessageBox::AcceptRole);
+        QPushButton *keep = box.addButton(tr("&Keep canvas size"), QMessageBox::NoRole);
+        box.addButton(QMessageBox::Cancel);
+        box.setDefaultButton(grow);
+        box.exec();
+        if (box.clickedButton() != grow && box.clickedButton() != keep) {
+            return false;
+        }
+        enlarge = box.clickedButton() == grow;
+        if (enlarge && !topLeft) {
+            position = QPointF(0, 0);
+        }
+    }
+    m_editor->paste(image, position, enlarge);
+    return true;
+}
+
+void MainWindow::dragEnterEvent(QDragEnterEvent *event)
+{
+    if (mimeDataHasImage(event->mimeData(), true)) {
+        event->acceptProposedAction();
+    }
+}
+
+void MainWindow::dropEvent(QDropEvent *event)
+{
+    importMimeData(event->mimeData(), std::nullopt, true);
+    event->acceptProposedAction();
 }
 
 void MainWindow::newImage()
@@ -552,6 +717,13 @@ QJsonObject MainWindow::automationState() const
         {QStringLiteral("filePath"), m_editor->filePath()},
         {QStringLiteral("canUndo"), m_editor->history().canUndo()},
         {QStringLiteral("canRedo"), m_editor->history().canRedo()},
+        {QStringLiteral("selection"),
+         m_editor->selection()->hasSelection()
+             ? QJsonValue(QJsonArray{m_editor->selection()->bounds().x(), m_editor->selection()->bounds().y(),
+                                     m_editor->selection()->bounds().width(),
+                                     m_editor->selection()->bounds().height()})
+             : QJsonValue()},
+        {QStringLiteral("floating"), m_editor->selection()->isFloating()},
         {QStringLiteral("tool"), objectSuffix(m_actions->toolAction(m_settings->tool()))},
         {QStringLiteral("brush"), objectSuffix(m_actions->brushAction(m_settings->brushType()))},
         {QStringLiteral("shape"), objectSuffix(m_actions->shapeAction(m_settings->shapeType()))},

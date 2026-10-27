@@ -39,6 +39,39 @@ QImage Document::composite(const QRect &area) const
     return result;
 }
 
+void Document::resizeCanvas(QSize size)
+{
+    Q_ASSERT(!size.isEmpty());
+    m_size = size;
+    for (Layer &layer : m_layers) {
+        QImage resized = makeTransparentImage();
+        QPainter painter(&resized);
+        painter.setCompositionMode(QPainter::CompositionMode_Source);
+        painter.drawImage(0, 0, layer.image);
+        painter.end();
+        layer.image = std::move(resized);
+    }
+}
+
+void Document::crop(const QRect &area, const QPainterPath &shape)
+{
+    const QRect clipped = area.intersected(rect());
+    Q_ASSERT(!clipped.isEmpty());
+    m_size = clipped.size();
+    for (Layer &layer : m_layers) {
+        QImage cropped = layer.image.copy(clipped);
+        if (!shape.isEmpty()) {
+            // Clear what lies outside the shape (fillPath only reaches pixels inside a path).
+            QPainterPath outside;
+            outside.addRect(QRectF(cropped.rect()));
+            QPainter painter(&cropped);
+            painter.setCompositionMode(QPainter::CompositionMode_Clear);
+            painter.fillPath(outside.subtracted(shape.translated(-clipped.topLeft())), Qt::black);
+        }
+        layer.image = std::move(cropped);
+    }
+}
+
 QImage Document::makeTransparentImage() const
 {
     QImage image(m_size, LayerFormat);

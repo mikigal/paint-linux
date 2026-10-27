@@ -9,12 +9,16 @@ add_library(paint_core STATIC
     editor/Editor.h
     io/ImageIO.cpp
     io/ImageIO.h
+    io/MimeImport.cpp
+    io/MimeImport.h
     ops/FloodFill.cpp
     ops/FloodFill.h
     shapes/ShapeGeometry.cpp
     shapes/ShapeGeometry.h
     tools/ClickTools.cpp
     tools/ClickTools.h
+    tools/SelectionTool.cpp
+    tools/SelectionTool.h
     tools/StrokeTools.cpp
     tools/StrokeTools.h
     tools/Tool.h

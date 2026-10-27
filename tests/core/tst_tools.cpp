@@ -167,14 +167,15 @@ private Q_SLOTS:
         QVERIFY(!tool->isActive());
     }
 
-    void switchingToolsCancelsStroke()
+    void switchingToolsFinishesStroke()
     {
         InteractiveTool *tool = m_editor->currentTool();
         tool->press({QPointF(2.5, 10.5), Qt::LeftButton, {}});
         tool->move({QPointF(20.5, 10.5), Qt::NoButton, {}});
         m_settings->setTool(Tool::Fill);
-        QCOMPARE(pixel(10, 10).alpha(), 0);
-        QVERIFY(!m_editor->history().canUndo());
+        QCOMPARE(pixel(10, 10), QColor(Qt::black));
+        QVERIFY(m_editor->history().canUndo());
+        QVERIFY(!tool->isActive());
     }
 
 private:

@@ -13,6 +13,7 @@
 
 namespace paint {
 
+class SelectionTool;
 class ToolSettings;
 
 // The editing session behind a window: the document, its undo history, the file it belongs to
@@ -34,11 +35,25 @@ public:
     History &history() override { return m_history; }
     void documentChanged(const QRect &area) override;
     void requestZoom(QPointF documentPosition, bool zoomIn) override;
+    void selectionChanged() override;
 
     const Document &document() const { return m_document; }
     // The tool for the active tool setting.
     InteractiveTool *currentTool();
     void cancelTool();
+    void commitTool();
+
+    // The selection shared by the rectangle and free-form selection tools.
+    SelectionTool *selection() const { return m_selection.get(); }
+    void selectAll();
+    void invertSelection();
+    void deleteSelection();
+    // The selected pixels (or the whole layer/image without a selection).
+    QImage copySelection(bool visibleLayers) const;
+    QImage cutSelection();
+    // Pastes `image` as a floating selection; `enlargeCanvas` grows the canvas to fit it first.
+    void paste(const QImage &image, QPointF topLeft, bool enlargeCanvas = false);
+    void cropToSelection();
 
     void undo();
     void redo();
@@ -55,6 +70,9 @@ public:
 
 Q_SIGNALS:
     void pixelsChanged(const QRect &area);
+    // The document's size or layers changed (crop, canvas size, undo of those).
+    void documentRestructured();
+    void selectionStateChanged();
     // A new or opened document replaced the old one (size and layers may differ).
     void documentReplaced();
     void zoomRequested(QPointF documentPosition, bool zoomIn);
@@ -63,11 +81,14 @@ Q_SIGNALS:
 
 private:
     void replaceDocument(Document document, const QString &path, qint64 fileSize);
+    void useSelectionTool();
 
     ToolSettings *m_settings;
     Document m_document;
     History m_history;
     QHash<Tool, std::shared_ptr<InteractiveTool>> m_tools;
+    std::shared_ptr<SelectionTool> m_selection;
+    InteractiveTool *m_activeTool = nullptr;
     QString m_filePath;
     qint64 m_fileSize = -1;
 };

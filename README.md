@@ -30,6 +30,7 @@ name and icon and xdg-desktop-portal recognises the app ID; `--uninstall` remove
 ```bash
 tools/verify.sh               # build, tests, formatting, visual regression — run before committing
 tools/verify.sh --tidy --asan # plus clang-tidy and a sanitizer build
+tools/verify.sh --integration # plus cross-application tests in a headless KWin (needs wl-clipboard)
 ```
 
 - **Unit and widget tests** (`ctest --preset dev`) run headless on Qt's offscreen platform with a
@@ -38,6 +39,8 @@ tools/verify.sh --tidy --asan # plus clang-tidy and a sanitizer build
 - **Golden images**: `PAINT_COMPARE_GOLDEN(image, "name")` compares against `tests/golden/name.png`;
   failures write `*.actual.png` and `*.diff.png` to `build/dev/test-output/`. Accept intended changes
   with `PAINT_UPDATE_GOLDEN=1 ctest --preset dev -R <test>`.
+- **Integration**: `tests/integration/*.py` run the app in a headless KWin and exchange images
+  with other Wayland clients (`wl-copy`/`wl-paste`) through the real clipboard.
 - **Visual regression**: `tests/visual/run.py` drives the real app through scenarios
   (`tests/visual/scenarios.py`) and compares screenshots with `tests/visual/baselines/`; review the
   output and run `tests/visual/run.py --update` to accept changes.

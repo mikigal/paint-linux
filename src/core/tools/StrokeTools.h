@@ -22,6 +22,7 @@ public:
     void move(const PointerEvent &event) override;
     void release(const PointerEvent &event) override;
     void cancel() override;
+    void commit() override;
     bool isActive() const override { return m_button != Qt::NoButton; }
 
 protected:

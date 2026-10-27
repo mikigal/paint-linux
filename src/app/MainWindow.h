@@ -9,6 +9,8 @@ class ActionRegistry;
 class CanvasView;
 class LayersDock;
 class QLabel;
+class QMimeData;
+class RemoteImageLoader;
 class RibbonHost;
 class SidePanel;
 
@@ -41,9 +43,16 @@ public:
     Q_INVOKABLE bool saveFile(const QString &path);
     // The visible colour of a document pixel as #AARRGGBB, for UI scenarios.
     Q_INVOKABLE QString documentPixel(int x, int y) const;
+    // Pastes an image as a floating selection at the top-left of the visible canvas (Paint's
+    // spot), offering to enlarge the canvas when it does not fit. Returns false if cancelled.
+    bool pasteImage(const QImage &image, std::optional<QPointF> topLeft = std::nullopt);
+    // Imports what another application dropped or put on the clipboard.
+    void importMimeData(const QMimeData *mime, std::optional<QPointF> topLeft, bool openFiles);
 
 protected:
     void closeEvent(QCloseEvent *event) override;
+    void dragEnterEvent(QDragEnterEvent *event) override;
+    void dropEvent(QDropEvent *event) override;
 
 private:
     void createMenus();
@@ -61,6 +70,11 @@ private:
     bool maybeSave();
     void updateWindowTitle();
     void updateDocumentInfo();
+    void updateSelectionInfo();
+    void updatePasteAvailability();
+    void copyToClipboard(const QImage &image);
+    void pasteFromClipboard();
+    void importFromFile();
     void showCanvasContextMenu(QPoint globalPosition);
     void setCursorPosition(std::optional<QPoint> position);
 
@@ -75,4 +89,5 @@ private:
     QLabel *m_selectionLabel = nullptr;
     QLabel *m_canvasSizeLabel = nullptr;
     QLabel *m_fileSizeLabel = nullptr;
+    RemoteImageLoader *m_remoteImages;
 };
