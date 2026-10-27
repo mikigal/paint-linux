@@ -1,0 +1,25 @@
+# Build trees
+/build/
+/compile_commands.json
+CMakeLists.txt.user*
+CMakeUserPresets.json
+
+# Editors
+.vscode/
+.idea/
+*.swp
+.cache/
+
+# Python
+__pycache__/
+*.pyc
+
+# Third-party reference screenshots of Windows Paint: local comparison only, never committed
+/docs/reference/*
+!/docs/reference/SOURCES.md
+
+# Output of visual scenarios (baselines live in tests/visual/baselines/)
+/tests/visual/output/
+
+# Python virtualenv for tools/icons
+/.venv/
