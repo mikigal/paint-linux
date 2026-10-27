@@ -12,7 +12,7 @@ a Linux-native form).
 
 | Feature | Paint | Paint for Linux | M | Status |
 |---|---|---|---|---|
-| Title | "Untitled - Paint" | "Untitled — Paint for Linux" via Qt display name, `[*]` modified marker | M2 | todo |
+| Title | "Untitled - Paint" | "Untitled — Paint for Linux" via Qt display name, `[*]` modified marker | M2 | done |
 | Window frame | Windows title bar | System decorations (KWin server-side) | M0 | adapted |
 | Menu row | File, Edit, View + Save/Undo/Redo buttons + settings gear | Native `QMenuBar` (works with Plasma global menu): File, Edit, Image, View, Help | M1 | done |
 | Quick access | Save, Undo, Redo in the menu row | First ribbon group | M1 | done |
@@ -20,9 +20,9 @@ a Linux-native form).
 | Ribbon collapse | Narrow window: shapes gallery → single button, labels shorten *(verify thresholds)* | Shapes → Image → Quick access → Colors collapse into drop-downs as the window narrows | M1 | done |
 | Auto-hide toolbar | "Always show" / "Automatically hide" | View → Toolbar submenu + ribbon chevron | M1 | done |
 | Workspace | Grey area, centred white canvas, 8 resize handles | Same | M1 | done |
-| Left side panel | Floating vertical sliders: size; opacity (pencil, brush); eraser transparency; fill tolerance | Same, overlay cards; UI done, values drive tools from M2 | M1/M2 | in progress |
+| Left side panel | Floating vertical sliders: size; opacity (pencil, brush); eraser transparency; fill tolerance | Same, overlay cards driving size, opacity, eraser transparency and fill tolerance | M1/M2 | done |
 | Layers panel | Right strip, toggled from ribbon | `QDockWidget` on the right; strip UI done, operations in M7 | M7 | in progress |
-| Status bar | Cursor pos, selection size, canvas size, file size · fit, zoom %, −, slider, + | `QStatusBar` with the same items; file size after M2 saving | M1/M2 | in progress |
+| Status bar | Cursor pos, selection size, canvas size, file size · fit, zoom %, −, slider, + | `QStatusBar` with the same items; selection size arrives with selections (M3) | M1/M2 | in progress |
 | Settings page | App theme, AI watermark, About | Theme follows the system; Help → About | — | adapted |
 | Key tips | Alt / F10 overlays | Native menu mnemonics | M9 | adapted |
 | Theme | Light / Dark / System | System colour scheme (Breeze etc.), icons recoloured for dark | M1 | done |
@@ -31,12 +31,12 @@ a Linux-native form).
 
 | Feature | Paint | Paint for Linux | M | Status |
 |---|---|---|---|---|
-| New | Ctrl+N, asks to save changes | Same | M2 | todo |
-| Open | Ctrl+O, Windows file dialog | Ctrl+O, native/portal `QFileDialog` | M2 | todo |
+| New | Ctrl+N, asks to save changes | Same | M2 | done |
+| Open | Ctrl+O, Windows file dialog | Ctrl+O, native/portal `QFileDialog` | M2 | done |
 | Import to canvas → From a file | Pastes a file as a floating selection | Same | M3 | todo |
 | Recent | Recent files submenu | Same (`QSettings`) | M8 | todo |
-| Save | Ctrl+S; new images default to PNG | Same | M2 | todo |
-| Save as → PNG, JPEG, BMP, GIF, Other format | Format submenu; F12 | Same; F12 and Ctrl+Shift+S | M2/M8 | todo |
+| Save | Ctrl+S; new images default to PNG | Same | M2 | done |
+| Save as → PNG, JPEG, BMP, GIF, Other format | Format submenu; F12 | Same; F12 and Ctrl+Shift+S. PNG, JPEG and 24-bit BMP done, GIF and more in M8 | M2/M8 | in progress |
 | Other format | Monochrome/16/256/24-bit BMP, JPEG, GIF, TIFF, PNG, HEIC | Same (HEIC via kimageformats) | M8 | todo |
 | Save as project | `.paint`, keeps layers | OpenRaster `.ora` (`.paint` is undocumented) | M7 | adapted |
 | Print → Print, Page setup, Print preview | Windows dialogs | `QPrintDialog`, `QPageSetupDialog`, `QPrintPreviewDialog` | M8 | todo |
@@ -49,7 +49,7 @@ a Linux-native form).
 
 | Feature | Paint | Paint for Linux | M | Status |
 |---|---|---|---|---|
-| Undo / Redo | Ctrl+Z / Ctrl+Y | Plus Ctrl+Shift+Z | M2 | todo |
+| Undo / Redo | Ctrl+Z / Ctrl+Y | Plus Ctrl+Shift+Z | M2 | done |
 | Cut / Copy / Paste | Ctrl+X/C/V; without a selection copies the current layer | Same | M3 | todo |
 | Copy visible layers | Ctrl+Shift+C | Same | M7 | todo |
 | Paste images from other apps | Any clipboard bitmap | `image/*`, `application/x-qt-image`, `text/uri-list` files, HTML `<img>` | M3 | todo |
@@ -100,12 +100,12 @@ a Linux-native form).
 
 | Feature | Paint | Paint for Linux | M | Status |
 |---|---|---|---|---|
-| Pencil | 1 px default, opacity slider, circular cursor | Same | M2 | todo |
-| Fill | Flood fill with tolerance slider | Same | M2 | todo |
+| Pencil | 1 px default, opacity slider, circular cursor | Same: hard-edged, opacity without build-up, size outline cursor | M2 | done |
+| Fill | Flood fill with tolerance slider | Same: scanline flood fill on the active layer, 0–100 % tolerance | M2 | done |
 | Text | Text box + format bar | `TextFormatBar` toolbar | M6 | todo |
-| Eraser | Erases to transparency, transparency slider | Same | M2 | todo |
-| Color picker | Left → colour 1, right → colour 2 | Same | M2 | todo |
-| Magnifier | Click zooms in, right-click zooms out | Same | M2 | todo |
+| Eraser | Erases to transparency, transparency slider | Same: square, to transparency, strength from the transparency slider | M2 | done |
+| Color picker | Left → colour 1, right → colour 2 | Same, then returns to the previous tool | M2 | done |
+| Magnifier | Click zooms in, right-click zooms out | Same | M2 | done |
 | Tool keys | P, E, B, I, T, Z, S *(verify)* | P, B, T, E, I, Z; S toggles rectangle/free-form selection | M9 | done |
 | Generative erase | AI | — | — | excluded |
 
@@ -113,7 +113,7 @@ a Linux-native form).
 
 | Feature | Paint | Paint for Linux | M | Status |
 |---|---|---|---|---|
-| Brush, Calligraphy brush, Calligraphy pen, Airbrush, Oil brush, Crayon, Marker, Natural pencil, Watercolor brush | Stamp-based, size + opacity | Same; deterministic RNG for tests | M6 | todo |
+| Brush, Calligraphy brush, Calligraphy pen, Airbrush, Oil brush, Crayon, Marker, Natural pencil, Watercolor brush | Stamp-based, size + opacity | Round brush with opacity done; the other eight engines in M6 | M6 | in progress |
 
 ## Shapes
 
@@ -164,7 +164,7 @@ scanner import.
 
 | Feature | Notes | M | Status |
 |---|---|---|---|
-| "Open with" integration | `.desktop` with image MimeTypes, app ID `pl.mikigal.PaintForLinux` | M8 | todo |
-| Open files from the command line | `paint-for-linux FILE` | M8 | todo |
+| "Open with" integration | `.desktop` with image MimeTypes, app ID `pl.mikigal.PaintForLinux` | M8 | in progress |
+| Open files from the command line | `paint-for-linux FILE` | M2 | done |
 | Extra read formats | WebP, AVIF, JXL, PSD, XCF via kimageformats | M8 | todo |
 | Packaging | PKGBUILD (Arch/CachyOS), `cmake --install` | M10 | todo |

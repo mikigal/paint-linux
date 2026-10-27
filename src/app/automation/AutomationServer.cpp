@@ -19,6 +19,7 @@
 #include <QMainWindow>
 #include <QMenu>
 #include <QMenuBar>
+#include <QMetaMethod>
 #include <QMimeData>
 #include <QPainter>
 #include <QPixmap>
@@ -232,6 +233,14 @@ WindowPoint resolvePoint(const QJsonObject &args, const QString &targetKey = QSt
     }
 
     if (args.contains(QStringLiteral("x")) && args.contains(QStringLiteral("y"))) {
+        const QPoint point(args.value(QStringLiteral("x")).toInt(), args.value(QStringLiteral("y")).toInt());
+        if (args.contains(QStringLiteral("relativeTo"))) {
+            QWidget *origin = findWidget(args.value(QStringLiteral("relativeTo")).toString());
+            if (!origin || !origin->isVisible()) {
+                fail(QStringLiteral("relativeTo widget is not visible"));
+            }
+            return {origin->window(), origin->mapTo(origin->window(), point)};
+        }
         QWidget *window = mainWindow();
         if (args.contains(QStringLiteral("window"))) {
             QWidget *named = findWidget(args.value(QStringLiteral("window")).toString());
@@ -478,6 +487,8 @@ AutomationServer::AutomationServer(QObject *parent)
         QStringLiteral("action [checked:bool] [force:bool]"));
     add(QStringLiteral("property"), &AutomationServer::property,
         QStringLiteral("target, name, [value] — read or write a Qt property"));
+    add(QStringLiteral("call"), &AutomationServer::call,
+        QStringLiteral("target, method, [args:[..]] — invoke a Q_INVOKABLE method (may open dialogs)"));
     add(QStringLiteral("resize"), &AutomationServer::resize, QStringLiteral("width, height [target]"));
     add(QStringLiteral("wait"), &AutomationServer::wait, QStringLiteral("ms — keep processing events"));
     add(QStringLiteral("clipboard"), &AutomationServer::clipboard,
@@ -542,19 +553,19 @@ void AutomationServer::processRequests(QLocalSocket *socket)
                             : Result(QJsonObject{{QStringLiteral("ok"), false},
                                                  {QStringLiteral("error"), error.errorString()}});
 
-        const QByteArray reply = QJsonDocument(result.reply).toJson(QJsonDocument::Compact) + '\n';
         if (!result.deferred) {
-            socket->write(reply);
+            socket->write(QJsonDocument(result.reply).toJson(QJsonDocument::Compact) + '\n');
             socket->flush();
             continue;
         }
         // Normally the reply goes out once the input has been delivered, so the next request sees
         // its effects. If the input opened a modal dialog or a menu, its nested event loop blocks
         // the injection; then reply from inside that loop so the client can drive the dialog.
+        auto reply = std::make_shared<QJsonObject>(result.reply);
         auto replied = std::make_shared<bool>(false);
         const auto sendReply = [guard, reply, replied] {
             if (!*replied && guard) {
-                guard->write(reply);
+                guard->write(QJsonDocument(*reply).toJson(QJsonDocument::Compact) + '\n');
                 guard->flush();
             }
             *replied = true;
@@ -569,6 +580,9 @@ void AutomationServer::processRequests(QLocalSocket *socket)
         watchdog.start();
         try {
             result.deferred();
+            if (result.complete && !*replied) {
+                result.complete(*reply);
+            }
         } catch (const CommandError &e) {
             qWarning("Automation input failed: %s", qPrintable(e.message));
         }
@@ -906,6 +920,60 @@ AutomationServer::Result AutomationServer::property(const QJsonObject &args)
         settle();
     }
     return QJsonObject{{QStringLiteral("value"), variantToJson(object->property(name.constData()))}};
+}
+
+AutomationServer::Result AutomationServer::call(const QJsonObject &args)
+{
+    QPointer<QObject> object(findObject(requireString(args, QStringLiteral("target"))));
+    const QByteArray name = requireString(args, QStringLiteral("method")).toLatin1();
+    const QJsonArray values = args.value(QStringLiteral("args")).toArray();
+    const QMetaObject *meta = object->metaObject();
+    QMetaMethod method;
+    for (int i = 0; i < meta->methodCount(); ++i) {
+        const QMetaMethod candidate = meta->method(i);
+        if (candidate.name() == name && candidate.parameterCount() == values.size() &&
+            candidate.access() == QMetaMethod::Public) {
+            method = candidate;
+        }
+    }
+    if (!method.isValid()) {
+        fail(QStringLiteral("no public method %1 taking %2 arguments")
+                 .arg(QString::fromLatin1(name))
+                 .arg(values.size()));
+    }
+
+    // Arguments are converted to the parameter types; the call runs like other input, so a dialog
+    // it opens keeps the channel responsive.
+    auto arguments = std::make_shared<QVariantList>();
+    for (qsizetype i = 0; i < values.size(); ++i) {
+        QVariant value = values.at(i).toVariant();
+        if (!value.convert(method.parameterMetaType(int(i)))) {
+            fail(QStringLiteral("argument %1 cannot be converted").arg(i + 1));
+        }
+        arguments->append(value);
+    }
+    auto result = std::make_shared<QVariant>();
+    if (method.returnMetaType().id() != QMetaType::Void) {
+        *result = QVariant(method.returnMetaType());
+    }
+    Result call({}, [object, method, arguments, result] {
+        if (!object) {
+            return;
+        }
+        QList<void *> argv{result->isValid() ? result->data() : nullptr};
+        for (QVariant &argument : *arguments) {
+            argv.append(argument.data());
+        }
+        QMetaObject::metacall(object, QMetaObject::InvokeMetaMethod, method.methodIndex(), argv.data());
+        settle();
+    });
+    // The return value is reported unless the method blocked in a dialog (then the reply left early).
+    call.complete = [result](QJsonObject &reply) {
+        if (result->isValid()) {
+            reply.insert(QStringLiteral("value"), variantToJson(*result));
+        }
+    };
+    return call;
 }
 
 AutomationServer::Result AutomationServer::resize(const QJsonObject &args)

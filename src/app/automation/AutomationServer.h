@@ -48,6 +48,8 @@ private:
         {}
         QJsonObject reply;
         std::function<void()> deferred;
+        // Optional: fills in the reply after `deferred` has finished (e.g. a return value).
+        std::function<void(QJsonObject &)> complete;
     };
     using Command = Result (AutomationServer::*)(const QJsonObject &);
 
@@ -72,6 +74,7 @@ private:
     Result type(const QJsonObject &args);
     Result invoke(const QJsonObject &args);
     Result property(const QJsonObject &args);
+    Result call(const QJsonObject &args);
     Result resize(const QJsonObject &args);
     Result wait(const QJsonObject &args);
     Result clipboard(const QJsonObject &args);

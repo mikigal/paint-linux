@@ -4,6 +4,7 @@ target_compile_definitions(tst_mainwindow_dark PRIVATE PAINT_TEST_DARK_THEME)
 paint_add_test(tst_icons SOURCES tst_icons.cpp LIBRARIES paint_app Qt6::Svg)
 paint_add_test(tst_ribbon SOURCES tst_ribbon.cpp LIBRARIES paint_app)
 paint_add_test(tst_actions SOURCES tst_actions.cpp LIBRARIES paint_app)
+paint_add_test(tst_drawing SOURCES tst_drawing.cpp LIBRARIES paint_app)
 
 if(PAINT_AUTOMATION)
     paint_add_test(tst_automation SOURCES tst_automation.cpp LIBRARIES paint_app)

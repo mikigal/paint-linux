@@ -4,6 +4,8 @@
 #include "PaintConfig.h"
 #include "canvas/CanvasView.h"
 #include "canvas/SidePanel.h"
+#include "editor/Editor.h"
+#include "io/ImageIO.h"
 #include "panels/LayersDock.h"
 #include "ribbon/PaintRibbon.h"
 #include "ribbon/Ribbon.h"
@@ -12,24 +14,29 @@
 #include "ui/Icons.h"
 #include "widgets/ZoomControls.h"
 
+#include <QAbstractButton>
 #include <QAction>
 #include <QApplication>
+#include <QCloseEvent>
+#include <QFileDialog>
+#include <QFileInfo>
 #include <QHBoxLayout>
 #include <QJsonArray>
 #include <QLabel>
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QPushButton>
 #include <QSet>
+#include <QStandardPaths>
 #include <QStatusBar>
+#include <QTimer>
 #include <QToolBar>
 
 using namespace paint;
 
 namespace {
 
-// Provisional; M2 picks the default canvas size the way Paint does.
-constexpr QSize DefaultCanvasSize(1152, 648);
 constexpr QSize DefaultWindowSize(1280, 800);
 constexpr int StatusItemWidth = 150;
 
@@ -61,16 +68,14 @@ QLabel *addStatusItem(QStatusBar *bar, const QString &name, const QString &iconN
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
-    , m_document(DefaultCanvasSize)
     , m_settings(new ToolSettings(this))
+    , m_editor(new Editor(m_settings, this))
     , m_actions(new ActionRegistry(m_settings, this))
-    , m_canvas(new CanvasView(&m_document, this))
+    , m_canvas(new CanvasView(m_editor, this))
     , m_sidePanel(new SidePanel(m_settings, m_canvas))
-    , m_layers(new LayersDock(&m_document, m_actions, this))
+    , m_layers(new LayersDock(&m_editor->document(), m_actions, this))
 {
     setObjectName(QStringLiteral("mainWindow"));
-    // Qt appends the application display name ("— Paint for Linux").
-    setWindowTitle(tr("Untitled") + QStringLiteral("[*]"));
     resize(DefaultWindowSize);
 
     setCentralWidget(m_canvas);
@@ -81,6 +86,16 @@ MainWindow::MainWindow(QWidget *parent)
     createRibbon();
     createStatusBar();
     connectActions();
+    updateWindowTitle();
+    updateDocumentInfo();
+}
+
+MainWindow::~MainWindow()
+{
+    // The editor (a child) clears its undo stack while being destroyed, after this object is no
+    // longer a MainWindow; its signals must not reach the lambdas above by then.
+    disconnect(m_editor, nullptr, this, nullptr);
+    disconnect(m_editor->history().stack(), nullptr, this, nullptr);
 }
 
 void MainWindow::createMenus()
@@ -209,10 +224,29 @@ void MainWindow::createStatusBar()
     m_selectionLabel = addStatusItem(bar, QStringLiteral("selection"), QStringLiteral("select-rectangle"));
     m_canvasSizeLabel = addStatusItem(bar, QStringLiteral("canvasSize"), QStringLiteral("canvas-size"));
     m_fileSizeLabel = addStatusItem(bar, QStringLiteral("fileSize"), QStringLiteral("save"));
-    m_fileSizeLabel->parentWidget()->hide(); // shown once the image is saved
-    m_canvasSizeLabel->setText(
-        tr("%1 × %2px").arg(m_document.size().width()).arg(m_document.size().height()));
     bar->addPermanentWidget(new ZoomControls(m_canvas, m_actions, bar));
+}
+
+void MainWindow::updateWindowTitle()
+{
+    const QString path = m_editor->filePath();
+    // Qt appends the application display name ("… — Paint for Linux").
+    setWindowTitle((path.isEmpty() ? tr("Untitled") : QFileInfo(path).fileName()) + QStringLiteral("[*]"));
+    setWindowModified(m_editor->isModified());
+}
+
+void MainWindow::updateDocumentInfo()
+{
+    const QSize size = m_editor->document().size();
+    m_canvasSizeLabel->setText(tr("%1 × %2px").arg(size.width()).arg(size.height()));
+    // Paint shows the size of the saved file ("Size: 20.4KB") once there is one.
+    const qint64 bytes = m_editor->fileSize();
+    m_fileSizeLabel->parentWidget()->setVisible(bytes >= 0);
+    if (bytes >= 0) {
+        const double kilobytes = bytes / 1024.0;
+        m_fileSizeLabel->setText(kilobytes < 1024 ? tr("Size: %1KB").arg(kilobytes, 0, 'f', 1)
+                                                  : tr("Size: %1MB").arg(kilobytes / 1024.0, 0, 'f', 1));
+    }
 }
 
 void MainWindow::setCursorPosition(std::optional<QPoint> position)
@@ -227,6 +261,15 @@ void MainWindow::connectActions()
     };
 
     on(ActionId::Quit, &QWidget::close);
+    on(ActionId::New, &MainWindow::newImage);
+    on(ActionId::Open, &MainWindow::openImage);
+    on(ActionId::Save, &MainWindow::saveImage);
+    on(ActionId::SaveAs, [this] { saveImageAs(); });
+    on(ActionId::SaveAsPng, [this] { saveImageAs(QStringLiteral("png")); });
+    on(ActionId::SaveAsJpeg, [this] { saveImageAs(QStringLiteral("jpg")); });
+    on(ActionId::SaveAsBmp, [this] { saveImageAs(QStringLiteral("bmp")); });
+    on(ActionId::Undo, [this] { m_editor->undo(); });
+    on(ActionId::Redo, [this] { m_editor->redo(); });
     on(ActionId::About, &MainWindow::showAbout);
     on(ActionId::AboutQt, &QApplication::aboutQt);
     on(ActionId::ZoomIn, [this] { m_canvas->zoomIn(); });
@@ -242,12 +285,44 @@ void MainWindow::connectActions()
     connect(m_layers, &QDockWidget::visibilityChanged, this,
             [this] { m_actions->get(ActionId::LayersPanel)->setChecked(m_layers->isVisible()); });
 
+    History &history = m_editor->history();
+    const auto syncHistory = [this, &history] {
+        m_actions->setHistoryAvailable(history.canUndo(), history.canRedo());
+    };
+    connect(history.stack(), &QUndoStack::indexChanged, this, syncHistory);
+    connect(history.stack(), &QUndoStack::cleanChanged, this, syncHistory);
+    connect(m_editor, &Editor::modifiedChanged, this, &MainWindow::updateWindowTitle);
+    connect(m_editor, &Editor::fileChanged, this, [this] {
+        updateWindowTitle();
+        updateDocumentInfo();
+    });
+    connect(m_editor, &Editor::documentReplaced, this, [this, syncHistory] {
+        syncHistory();
+        updateDocumentInfo();
+        m_layers->refresh();
+    });
+    // Layer thumbnails follow edits, but not on every pointer move.
+    auto *thumbnailTimer = new QTimer(this);
+    thumbnailTimer->setSingleShot(true);
+    thumbnailTimer->setInterval(150);
+    connect(thumbnailTimer, &QTimer::timeout, m_layers, &LayersDock::refresh);
+    connect(history.stack(), &QUndoStack::indexChanged, thumbnailTimer, qOverload<>(&QTimer::start));
+
     connect(m_canvas, &CanvasView::cursorPositionChanged, this, &MainWindow::setCursorPosition);
     connect(m_canvas, &CanvasView::contextMenuRequested, this, &MainWindow::showCanvasContextMenu);
 
     // Commands from later milestones say so instead of silently doing nothing.
     static const QSet<ActionId> implemented{
         ActionId::Quit,
+        ActionId::New,
+        ActionId::Open,
+        ActionId::Save,
+        ActionId::SaveAs,
+        ActionId::SaveAsPng,
+        ActionId::SaveAsJpeg,
+        ActionId::SaveAsBmp,
+        ActionId::Undo,
+        ActionId::Redo,
         ActionId::About,
         ActionId::AboutQt,
         ActionId::ZoomIn,
@@ -312,6 +387,138 @@ void MainWindow::showCanvasContextMenu(QPoint globalPosition)
     menu.exec(globalPosition);
 }
 
+void MainWindow::newImage()
+{
+    if (maybeSave()) {
+        m_editor->newDocument();
+    }
+}
+
+void MainWindow::openImage()
+{
+    if (!maybeSave()) {
+        return;
+    }
+    const QString directory = m_editor->filePath().isEmpty()
+                                  ? QStandardPaths::writableLocation(QStandardPaths::PicturesLocation)
+                                  : QFileInfo(m_editor->filePath()).absolutePath();
+    const QString path = QFileDialog::getOpenFileName(this, tr("Open"), directory,
+                                                      openNameFilters().join(QStringLiteral(";;")));
+    if (!path.isEmpty()) {
+        openFile(path);
+    }
+}
+
+bool MainWindow::openFile(const QString &path)
+{
+    if (!maybeSave()) {
+        return false;
+    }
+    if (const QString error = m_editor->open(path); !error.isEmpty()) {
+        QMessageBox::warning(this, QApplication::applicationDisplayName(), error);
+        return false;
+    }
+    return true;
+}
+
+bool MainWindow::saveImage()
+{
+    const QString path = m_editor->filePath();
+    if (const std::optional<SaveFormat> format = saveFormatForPath(path); !path.isEmpty() && format) {
+        return saveFile(path, *format);
+    }
+    // Never saved, or opened from a format Paint does not save to: ask where, as PNG.
+    return saveImageAs();
+}
+
+bool MainWindow::saveImageAs(const QString &suffix)
+{
+    QStringList filters;
+    for (const SaveFormat &format : saveFormats()) {
+        filters.append(format.nameFilter());
+    }
+    const SaveFormat initial = saveFormatForSuffix(suffix).value_or(saveFormats().first());
+    QString selected = initial.nameFilter();
+    const QString current = m_editor->filePath();
+    const QString directory = current.isEmpty()
+                                  ? QStandardPaths::writableLocation(QStandardPaths::PicturesLocation)
+                                  : QFileInfo(current).absolutePath();
+    const QString baseName = current.isEmpty() ? tr("Untitled") : QFileInfo(current).completeBaseName();
+    QString path = QFileDialog::getSaveFileName(this, tr("Save as"),
+                                                directory + QLatin1Char('/') + baseName + QLatin1Char('.') +
+                                                    initial.suffixes.first(),
+                                                filters.join(QStringLiteral(";;")), &selected);
+    if (path.isEmpty()) {
+        return false;
+    }
+    // Without a known suffix, use the chosen filter's format and add its suffix.
+    std::optional<SaveFormat> format = saveFormatForPath(path);
+    if (!format) {
+        for (const SaveFormat &candidate : saveFormats()) {
+            if (candidate.nameFilter() == selected) {
+                format = candidate;
+            }
+        }
+        format = format ? format : saveFormats().first();
+        path += QLatin1Char('.') + format->suffixes.first();
+    }
+    return saveFile(path, *format);
+}
+
+bool MainWindow::saveFile(const QString &path)
+{
+    const std::optional<SaveFormat> format = saveFormatForPath(path);
+    if (!format) {
+        QMessageBox::warning(this, QApplication::applicationDisplayName(),
+                             tr("Paint for Linux can't save files of this type."));
+        return false;
+    }
+    return saveFile(path, *format);
+}
+
+bool MainWindow::saveFile(const QString &path, const SaveFormat &format)
+{
+    if (const QString error = m_editor->save(path, format); !error.isEmpty()) {
+        QMessageBox::warning(this, QApplication::applicationDisplayName(), error);
+        return false;
+    }
+    return true;
+}
+
+bool MainWindow::maybeSave()
+{
+    if (!m_editor->isModified()) {
+        return true;
+    }
+    QMessageBox box(QMessageBox::Question, QApplication::applicationDisplayName(),
+                    tr("Do you want to save your work?"), QMessageBox::NoButton, this);
+    box.setObjectName(QStringLiteral("dialog.saveChanges"));
+    QPushButton *save = box.addButton(QMessageBox::Save);
+    QPushButton *dontSave = box.addButton(tr("Do&n't save"), QMessageBox::DestructiveRole);
+    box.addButton(QMessageBox::Cancel);
+    box.setDefaultButton(save);
+    box.exec();
+    if (box.clickedButton() == save) {
+        return saveImage();
+    }
+    return box.clickedButton() == dontSave;
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    if (maybeSave()) {
+        event->accept();
+    } else {
+        event->ignore();
+    }
+}
+
+QString MainWindow::documentPixel(int x, int y) const
+{
+    const QImage pixel = m_editor->document().composite(QRect(x, y, 1, 1));
+    return pixel.isNull() ? QString() : pixel.pixelColor(0, 0).name(QColor::HexArgb);
+}
+
 void MainWindow::showAbout()
 {
     QMessageBox::about(this, tr("About %1").arg(QApplication::applicationDisplayName()),
@@ -322,9 +529,10 @@ void MainWindow::showAbout()
 
 QJsonObject MainWindow::automationState() const
 {
+    const Document &document = m_editor->document();
     QJsonArray layers;
-    for (qsizetype i = 0; i < m_document.layerCount(); ++i) {
-        const paint::Layer &layer = m_document.layer(i);
+    for (qsizetype i = 0; i < document.layerCount(); ++i) {
+        const paint::Layer &layer = document.layer(i);
         layers.append(
             QJsonObject{{QStringLiteral("name"), layer.name}, {QStringLiteral("visible"), layer.visible}});
     }
@@ -335,12 +543,15 @@ QJsonObject MainWindow::automationState() const
         }
     }
     return QJsonObject{
-        {QStringLiteral("canvasSize"), QJsonArray{m_document.size().width(), m_document.size().height()}},
-        {QStringLiteral("backgroundColor"), m_document.backgroundColor().name(QColor::HexArgb)},
-        {QStringLiteral("backgroundVisible"), m_document.isBackgroundVisible()},
-        {QStringLiteral("activeLayer"), m_document.activeLayerIndex()},
+        {QStringLiteral("canvasSize"), QJsonArray{document.size().width(), document.size().height()}},
+        {QStringLiteral("backgroundColor"), document.backgroundColor().name(QColor::HexArgb)},
+        {QStringLiteral("backgroundVisible"), document.isBackgroundVisible()},
+        {QStringLiteral("activeLayer"), document.activeLayerIndex()},
         {QStringLiteral("layers"), layers},
-        {QStringLiteral("modified"), isWindowModified()},
+        {QStringLiteral("modified"), m_editor->isModified()},
+        {QStringLiteral("filePath"), m_editor->filePath()},
+        {QStringLiteral("canUndo"), m_editor->history().canUndo()},
+        {QStringLiteral("canRedo"), m_editor->history().canRedo()},
         {QStringLiteral("tool"), objectSuffix(m_actions->toolAction(m_settings->tool()))},
         {QStringLiteral("brush"), objectSuffix(m_actions->brushAction(m_settings->brushType()))},
         {QStringLiteral("shape"), objectSuffix(m_actions->shapeAction(m_settings->shapeType()))},

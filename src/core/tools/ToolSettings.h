@@ -26,6 +26,8 @@ public:
     void setTool(Tool tool);
     // The last selection tool used, shown on the Selection button.
     Tool selectionTool() const { return m_selectionTool; }
+    // The tool that was active before the current one (the colour picker returns to it).
+    Tool previousTool() const { return m_previousTool; }
 
     BrushType brushType() const { return m_brushType; }
     void setBrushType(BrushType type);
@@ -77,6 +79,7 @@ Q_SIGNALS:
 private:
     Tool m_tool = Tool::Pencil;
     Tool m_selectionTool = Tool::RectangleSelect;
+    Tool m_previousTool = Tool::Pencil;
     BrushType m_brushType = BrushType::Brush;
     ShapeType m_shapeType = ShapeType::Line;
     StrokeStyle m_outlineStyle = StrokeStyle::Solid;

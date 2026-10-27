@@ -16,6 +16,7 @@ void ToolSettings::setTool(Tool tool)
     if (tool == m_tool) {
         return;
     }
+    m_previousTool = m_tool;
     m_tool = tool;
     if (isSelectionTool(tool)) {
         m_selectionTool = tool;

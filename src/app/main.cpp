@@ -37,6 +37,9 @@ int main(int argc, char *argv[])
 
     MainWindow window;
     window.show();
+    if (const QStringList files = parser.positionalArguments(); !files.isEmpty()) {
+        window.openFile(files.first());
+    }
 
 #ifdef PAINT_AUTOMATION_ENABLED
     AutomationServer automation;

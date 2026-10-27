@@ -3,6 +3,7 @@
 #include "tools/ToolTypes.h"
 
 #include <QColor>
+#include <QCursor>
 #include <QIcon>
 #include <QPalette>
 
@@ -25,5 +26,9 @@ QIcon icon(const QString &name);
 
 // The gallery icon of a shape, drawn from its geometry.
 QIcon shapeIcon(ShapeType type);
+
+// A mouse cursor made from a Paint icon, with a white halo so it shows on any colour.
+// `hotspot` is in the icon's 20 px design grid.
+QCursor toolCursor(const QString &name, QPointF hotspot);
 
 } // namespace paint::ui

@@ -101,6 +101,14 @@ QByteArray svgSource(const QString &name)
     return *it;
 }
 
+void renderSvgIcon(const QString &name, QPainter *painter, const QRectF &rect, const IconColors &colors)
+{
+    QByteArray svg = svgSource(name);
+    svg.replace(ForegroundToken.data(), colors.foreground.name().toLatin1());
+    svg.replace(AccentToken.data(), colors.accent.name().toLatin1());
+    QSvgRenderer(svg).render(painter, rect);
+}
+
 } // namespace
 
 bool isDarkPalette(const QPalette &palette)
@@ -140,6 +148,51 @@ QIcon shapeIcon(ShapeType type)
             const qreal margin = 2.5 * unit;
             painter->drawPath(shapePath(type, rect.adjusted(margin, margin, -margin, -margin)));
         }));
+}
+
+} // namespace paint::ui
+
+namespace paint::ui {
+
+QCursor toolCursor(const QString &name, QPointF hotspot)
+{
+    constexpr int Size = 24;
+    constexpr int Halo = 2;
+    const qreal ratio = qApp->devicePixelRatio();
+
+    // Cursors look the same in light and dark themes: dark lines, Paint's blue accents.
+    QImage glyph(QSize(Size, Size) * ratio, QImage::Format_ARGB32_Premultiplied);
+    glyph.fill(Qt::transparent);
+    QPainter painter(&glyph);
+    painter.setRenderHint(QPainter::Antialiasing);
+    renderSvgIcon(name, &painter, QRectF(0, 0, Size * ratio, Size * ratio),
+                  {QColor(0x1a, 0x1a, 0x1a), QColor(0x00, 0x5f, 0xb8)});
+    painter.end();
+
+    QImage halo = glyph;
+    painter.begin(&halo);
+    painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+    painter.fillRect(halo.rect(), Qt::white);
+    painter.end();
+
+    const int pad = int(Halo * ratio);
+    QImage image(glyph.size() + QSize(2 * pad, 2 * pad), QImage::Format_ARGB32_Premultiplied);
+    image.fill(Qt::transparent);
+    painter.begin(&image);
+    for (int dy = -pad; dy <= pad; ++dy) {
+        for (int dx = -pad; dx <= pad; ++dx) {
+            if (dx * dx + dy * dy <= pad * pad) {
+                painter.drawImage(QPoint(pad + dx, pad + dy), halo);
+            }
+        }
+    }
+    painter.drawImage(QPoint(pad, pad), glyph);
+    painter.end();
+
+    QPixmap pixmap = QPixmap::fromImage(image);
+    pixmap.setDevicePixelRatio(ratio);
+    const QPointF hot = hotspot * (Size / 20.0) + QPointF(Halo, Halo);
+    return QCursor(pixmap, int(hot.x()), int(hot.y()));
 }
 
 } // namespace paint::ui
