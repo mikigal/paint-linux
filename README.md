@@ -21,6 +21,10 @@ cmake --build --preset dev
 
 Presets: `dev`, `asan` (AddressSanitizer + UBSan) and `release` (no tests, no automation).
 
+`tools/install-dev-desktop.sh` registers the development build with your desktop (a
+`pl.mikigal.PaintForLinux.desktop` entry and icon in `~/.local/share`), so the window gets its
+name and icon and xdg-desktop-portal recognises the app ID; `--uninstall` removes them.
+
 ## Testing
 
 ```bash

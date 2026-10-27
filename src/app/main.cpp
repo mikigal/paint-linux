@@ -3,6 +3,7 @@
 
 #include <QApplication>
 #include <QCommandLineParser>
+#include <QIcon>
 
 #ifdef PAINT_AUTOMATION_ENABLED
 #include "automation/AutomationServer.h"
@@ -16,6 +17,8 @@ int main(int argc, char *argv[])
     QApplication::setApplicationVersion(QStringLiteral(PAINT_VERSION));
     QApplication::setOrganizationDomain(QStringLiteral("mikigal.pl"));
     QGuiApplication::setDesktopFileName(QStringLiteral(PAINT_APP_ID));
+    QApplication::setWindowIcon(QIcon::fromTheme(QStringLiteral(PAINT_APP_ID),
+                                                 QIcon(QStringLiteral(":/paint/app/" PAINT_APP_ID ".svg"))));
 
     QCommandLineParser parser;
     parser.setApplicationDescription(QStringLiteral(PAINT_DESCRIPTION));

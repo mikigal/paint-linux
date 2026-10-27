@@ -71,7 +71,6 @@ MainWindow::MainWindow(QWidget *parent)
     setObjectName(QStringLiteral("mainWindow"));
     // Qt appends the application display name ("— Paint for Linux").
     setWindowTitle(tr("Untitled") + QStringLiteral("[*]"));
-    setWindowIcon(QIcon::fromTheme(QStringLiteral(PAINT_APP_ID), ui::icon(QStringLiteral("brushes"))));
     resize(DefaultWindowSize);
 
     setCentralWidget(m_canvas);

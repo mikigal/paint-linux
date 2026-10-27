@@ -45,10 +45,14 @@ target_compile_definitions(paint_warnings INTERFACE
     QT_USE_QSTRINGBUILDER
     QT_NO_KEYWORDS)
 
-add_subdirectory(src/core)
-add_subdirectory(src/app)
-
 if(PAINT_BUILD_TESTS)
     enable_testing()
+endif()
+
+add_subdirectory(src/core)
+add_subdirectory(src/app)
+add_subdirectory(packaging)
+
+if(PAINT_BUILD_TESTS)
     add_subdirectory(tests)
 endif()

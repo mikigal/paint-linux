@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Paint for Linux application icon: a painter's palette with a brush. -->
+  <defs>
+    <linearGradient id="board" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fdf6e9"/>
+      <stop offset="1" stop-color="#ecdcc0"/>
+    </linearGradient>
+    <linearGradient id="handle" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3a7bd5"/>
+      <stop offset="1" stop-color="#1d4f9c"/>
+    </linearGradient>
+  </defs>
+  <path d="M33 6C17.5 6 5 16.8 5 31.2 5 45 16 56 30.5 56c4.7 0 6.5-2.6 6.5-5.4 0-3.8-3.3-4.8-3.3-8.3 0-2.6 2.1-4.3 5-4.3H45c8 0 14-5.6 14-13.6C59 14.1 47.4 6 33 6Z"
+        fill="url(#board)" stroke="#8a6d45" stroke-width="2"/>
+  <circle cx="19" cy="26" r="5" fill="#ed1c24"/>
+  <circle cx="28" cy="16.5" r="5" fill="#ffc90e"/>
+  <circle cx="41" cy="16" r="5" fill="#22b14c"/>
+  <circle cx="18.5" cy="40" r="5" fill="#00a2e8"/>
+  <g transform="rotate(-45 44 40)">
+    <rect x="41.5" y="22" width="5" height="26" rx="2.5" fill="url(#handle)"/>
+    <rect x="41" y="44" width="6" height="5" fill="#b0b8c4"/>
+    <path d="M41 49h6c0 5-1.2 9-3 11-1.8-2-3-6-3-11Z" fill="#a349a4"/>
+  </g>
+</svg>

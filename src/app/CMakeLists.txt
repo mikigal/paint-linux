@@ -50,6 +50,11 @@ qt_add_resources(paint_app "paint_icons"
     BASE ${CMAKE_SOURCE_DIR}/resources/icons
     FILES ${paint_icon_files})
 
+qt_add_resources(paint_app "paint_app_icon"
+    PREFIX "/paint/app"
+    BASE ${CMAKE_SOURCE_DIR}/resources/app
+    FILES ${CMAKE_SOURCE_DIR}/resources/app/${PAINT_APP_ID}.svg)
+
 if(PAINT_AUTOMATION)
     target_sources(paint_app PRIVATE
         automation/AutomationServer.cpp
