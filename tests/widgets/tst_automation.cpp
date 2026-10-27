@@ -112,7 +112,7 @@ private Q_SLOTS:
     void dropOnRefusingWidgetIsReported()
     {
         const QJsonObject reply = call({{QStringLiteral("cmd"), QStringLiteral("drop")},
-                                        {QStringLiteral("target"), QStringLiteral("workspace")},
+                                        {QStringLiteral("target"), QStringLiteral("canvasView")},
                                         {QStringLiteral("text"), QStringLiteral("hello")}});
         QVERIFY(ok(reply));
         QCOMPARE(reply.value(QStringLiteral("accepted")).toBool(), false);

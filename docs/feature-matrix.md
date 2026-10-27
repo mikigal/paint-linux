@@ -14,18 +14,18 @@ a Linux-native form).
 |---|---|---|---|---|
 | Title | "Untitled - Paint" | "Untitled — Paint for Linux" via Qt display name, `[*]` modified marker | M2 | todo |
 | Window frame | Windows title bar | System decorations (KWin server-side) | M0 | adapted |
-| Menu row | File, Edit, View + Save/Undo/Redo buttons + settings gear | Native `QMenuBar` (works with Plasma global menu): File, Edit, View, Help | M1 | todo |
-| Quick access | Save, Undo, Redo in the menu row | First ribbon group | M1 | todo |
-| Ribbon | One row of labelled groups | Custom widget drawn with `QStyle`/`QPalette` | M1 | todo |
-| Ribbon collapse | Narrow window: shapes gallery → single button, labels shorten *(verify thresholds)* | Same, thresholds measured from references | M1 | todo |
-| Auto-hide toolbar | "Always show" / "Automatically hide" | View → Toolbar submenu + ribbon chevron | M1 | todo |
-| Workspace | Grey area, centred white canvas, 8 resize handles | Same | M1 | todo |
-| Left side panel | Floating vertical sliders: size; opacity (pencil, brush); eraser transparency; fill tolerance | Same, overlay widget | M1/M2 | todo |
-| Layers panel | Right strip, toggled from ribbon | `QDockWidget` on the right | M7 | todo |
-| Status bar | Cursor pos, selection size, canvas size, file size · fit, zoom %, −, slider, + | `QStatusBar` with the same items | M1/M2 | todo |
+| Menu row | File, Edit, View + Save/Undo/Redo buttons + settings gear | Native `QMenuBar` (works with Plasma global menu): File, Edit, Image, View, Help | M1 | done |
+| Quick access | Save, Undo, Redo in the menu row | First ribbon group | M1 | done |
+| Ribbon | One row of labelled groups | Custom widget drawn with `QStyle`/`QPalette` | M1 | done |
+| Ribbon collapse | Narrow window: shapes gallery → single button, labels shorten *(verify thresholds)* | Shapes → Image → Quick access → Colors collapse into drop-downs as the window narrows | M1 | done |
+| Auto-hide toolbar | "Always show" / "Automatically hide" | View → Toolbar submenu + ribbon chevron | M1 | done |
+| Workspace | Grey area, centred white canvas, 8 resize handles | Same | M1 | done |
+| Left side panel | Floating vertical sliders: size; opacity (pencil, brush); eraser transparency; fill tolerance | Same, overlay cards; UI done, values drive tools from M2 | M1/M2 | in progress |
+| Layers panel | Right strip, toggled from ribbon | `QDockWidget` on the right; strip UI done, operations in M7 | M7 | in progress |
+| Status bar | Cursor pos, selection size, canvas size, file size · fit, zoom %, −, slider, + | `QStatusBar` with the same items; file size after M2 saving | M1/M2 | in progress |
 | Settings page | App theme, AI watermark, About | Theme follows the system; Help → About | — | adapted |
 | Key tips | Alt / F10 overlays | Native menu mnemonics | M9 | adapted |
-| Theme | Light / Dark / System | System colour scheme (Breeze etc.), icons recoloured for dark | M1 | todo |
+| Theme | Light / Dark / System | System colour scheme (Breeze etc.), icons recoloured for dark | M1 | done |
 
 ## File menu
 
@@ -56,14 +56,14 @@ a Linux-native form).
 | Paste larger than canvas | Offers to enlarge the canvas | Same | M3 | todo |
 | Drag and drop into the app | Opens/imports dropped files | Drop on image = import as selection; elsewhere = open; browser images/URLs | M3 | todo |
 | Paste state | — | Paste enabled only when the clipboard holds usable data | M3 | todo |
-| Extra Edit entries | Only in ribbon/context menu | Select all, Invert selection, Delete, Crop, Invert colors also in Edit | M1 | todo |
+| Extra Edit entries | Only in ribbon/context menu | Native menus also list Paint's ribbon/context-menu commands; Image menu for crop/resize/rotate/flip/invert | M1 | done |
 
 ## View menu
 
 | Feature | Paint | Paint for Linux | M | Status |
 |---|---|---|---|---|
-| Zoom → 100%, in, out, fit | Ctrl+0, Ctrl+PgUp/PgDn, Ctrl+1 | Same + Ctrl+wheel | M2 | todo |
-| Zoom presets | 12.5–800 %, typed values | Same | M2 | todo |
+| Zoom → 100%, in, out, fit | Ctrl+0, Ctrl+PgUp/PgDn, Ctrl+1 | Same + Ctrl+wheel | M2 | done |
+| Zoom presets | 12.5–800 %, typed values | Same | M2 | done |
 | Rulers | Ctrl+R | Same | M9 | todo |
 | Gridlines | Ctrl+G | Same | M9 | todo |
 | Status bar | Toggle | Same | M9 | todo |
@@ -106,7 +106,7 @@ a Linux-native form).
 | Eraser | Erases to transparency, transparency slider | Same | M2 | todo |
 | Color picker | Left → colour 1, right → colour 2 | Same | M2 | todo |
 | Magnifier | Click zooms in, right-click zooms out | Same | M2 | todo |
-| Tool keys | P, E, B, I, T, Z, S *(verify)* | Same | M9 | todo |
+| Tool keys | P, E, B, I, T, Z, S *(verify)* | P, B, T, E, I, Z; S toggles rectangle/free-form selection | M9 | done |
 | Generative erase | AI | — | — | excluded |
 
 ## Brushes
@@ -136,8 +136,8 @@ a Linux-native form).
 
 | Feature | Paint | Paint for Linux | M | Status |
 |---|---|---|---|---|
-| Colour 1 / Colour 2 | Two circles | Same | M1/M2 | todo |
-| Palette | 10×2 presets | Same | M1 | todo |
+| Colour 1 / Colour 2 | Two circles | Same | M1/M2 | done |
+| Palette | 10×2 presets | Same | M1 | done |
 | Custom colours | Row of 10, persisted | Same | M4 | todo |
 | Edit colors dialog | Hue×saturation field, brightness, preview, hex, RGB/HSV, 48 basic, 24 custom, colour names | Same | M4 | todo |
 

@@ -48,7 +48,7 @@ tools/headless-session.sh start --theme dark            # offscreen; or --platfo
 tools/paintctl.py tree                                    # widgets, object names, actions
 tools/paintctl.py click target=menu.file
 tools/paintctl.py screenshot path=/tmp/shot.png
-tools/paintctl.py drop target=workspace urls='["image.png"]'
+tools/paintctl.py drop target=canvasView urls='["image.png"]'
 tools/headless-session.sh stop
 ```
 

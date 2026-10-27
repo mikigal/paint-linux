@@ -36,10 +36,10 @@ public:
     void setStateProvider(StateProvider provider) { m_stateProvider = std::move(provider); }
 
 private:
-    // A command validates its arguments and replies. Commands that inject input
-    // put the injection into `deferred`: the reply is queued before it runs, so a
-    // client still gets its answer when the input opens a modal dialog (whose
-    // nested event loop then keeps serving further commands).
+    // A command validates its arguments and replies. Commands that inject input put the
+    // injection into `deferred`, which runs before the reply is sent, unless it blocks in a
+    // modal dialog's or menu's event loop: then the reply is sent from that loop, which keeps
+    // serving further commands.
     struct Result
     {
         Result(QJsonObject r = {}, std::function<void()> d = {}) // NOLINT(google-explicit-constructor)

@@ -2,8 +2,38 @@ configure_file(PaintConfig.h.in ${CMAKE_CURRENT_BINARY_DIR}/PaintConfig.h @ONLY)
 
 # Everything except main() lives in a library so widget tests can link it.
 add_library(paint_app STATIC
+    ActionRegistry.cpp
+    ActionRegistry.h
     MainWindow.cpp
     MainWindow.h
+    canvas/CanvasView.cpp
+    canvas/CanvasView.h
+    canvas/SidePanel.cpp
+    canvas/SidePanel.h
+    panels/LayersDock.cpp
+    panels/LayersDock.h
+    ribbon/ColorsPanel.cpp
+    ribbon/ColorsPanel.h
+    ribbon/PaintRibbon.cpp
+    ribbon/PaintRibbon.h
+    ribbon/PreviewMenu.cpp
+    ribbon/PreviewMenu.h
+    ribbon/Ribbon.cpp
+    ribbon/Ribbon.h
+    ribbon/RibbonButton.cpp
+    ribbon/RibbonButton.h
+    ribbon/RibbonHost.cpp
+    ribbon/RibbonHost.h
+    ribbon/ShapeGallery.cpp
+    ribbon/ShapeGallery.h
+    ui/BrushPreview.cpp
+    ui/BrushPreview.h
+    ui/Icons.cpp
+    ui/Icons.h
+    ui/Names.cpp
+    ui/Names.h
+    widgets/ZoomControls.cpp
+    widgets/ZoomControls.h
 )
 
 target_include_directories(paint_app PUBLIC

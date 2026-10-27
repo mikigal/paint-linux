@@ -51,6 +51,16 @@ struct CommandError : std::exception
     throw CommandError(message);
 }
 
+// Lets pending layouts and repaints finish. Main window relayouts (e.g. a tool bar changing
+// height) take several rounds of posted events, so a single pass is not enough.
+void settle()
+{
+    for (int round = 0; round < 4; ++round) {
+        QCoreApplication::sendPostedEvents();
+        QCoreApplication::processEvents();
+    }
+}
+
 QString requireString(const QJsonObject &args, const QString &key)
 {
     const QJsonValue value = args.value(key);
@@ -182,6 +192,7 @@ WindowPoint locateAction(QAction *action)
 WindowPoint resolvePoint(const QJsonObject &args, const QString &targetKey = QStringLiteral("target"),
                          const QString &pointKey = QString())
 {
+    settle();
     if (!pointKey.isEmpty() && args.contains(pointKey)) {
         WindowPoint point;
         point.window = mainWindow();
@@ -362,12 +373,6 @@ QJsonObject describeWidget(QWidget *widget, QWidget *window, bool includeHidden)
     return node;
 }
 
-void settle()
-{
-    QCoreApplication::sendPostedEvents();
-    QCoreApplication::processEvents();
-}
-
 // Pastes visible popups (menus, combo box lists, tool tips) that belong to `window` onto its grab,
 // so a screenshot shows what a user would see.
 QImage compositeWithPopups(QWidget *window)
@@ -543,17 +548,32 @@ void AutomationServer::processRequests(QLocalSocket *socket)
             socket->flush();
             continue;
         }
-        QTimer::singleShot(0, socket, [guard, reply] {
-            if (guard) {
+        // Normally the reply goes out once the input has been delivered, so the next request sees
+        // its effects. If the input opened a modal dialog or a menu, its nested event loop blocks
+        // the injection; then reply from inside that loop so the client can drive the dialog.
+        auto replied = std::make_shared<bool>(false);
+        const auto sendReply = [guard, reply, replied] {
+            if (!*replied && guard) {
                 guard->write(reply);
                 guard->flush();
             }
+            *replied = true;
+        };
+        QTimer watchdog;
+        watchdog.setInterval(10);
+        connect(&watchdog, &QTimer::timeout, this, [sendReply] {
+            if (QApplication::activeModalWidget() || QApplication::activePopupWidget()) {
+                sendReply();
+            }
         });
+        watchdog.start();
         try {
             result.deferred();
         } catch (const CommandError &e) {
-            qWarning("Automation command failed after replying: %s", qPrintable(e.message));
+            qWarning("Automation input failed: %s", qPrintable(e.message));
         }
+        watchdog.stop();
+        sendReply();
     }
 }
 

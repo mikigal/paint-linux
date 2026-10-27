@@ -1,2 +1,4 @@
 paint_add_test(tst_goldenimage SOURCES tst_goldenimage.cpp)
 paint_add_test(tst_document SOURCES tst_document.cpp LIBRARIES paint_core)
+paint_add_test(tst_toolsettings SOURCES tst_toolsettings.cpp LIBRARIES paint_core)
+paint_add_test(tst_shapegeometry SOURCES tst_shapegeometry.cpp LIBRARIES paint_core)

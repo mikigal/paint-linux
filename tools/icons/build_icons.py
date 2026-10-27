@@ -177,7 +177,7 @@ ICONS: list[Icon] = [
     # View and status bar
     Icon("zoom-in", [outline("zoom_in")]),
     Icon("zoom-out", [outline("zoom_out")]),
-    Icon("fit-to-window", [outline("arrow_fit")]),
+    Icon("fit-to-window", [outline("scale_fit")]),
     Icon("rulers", [outline("ruler")]),
     Icon("gridlines", [outline("grid")]),
     Icon("full-screen", [outline("full_screen_maximize")]),
@@ -188,6 +188,24 @@ ICONS: list[Icon] = [
     Icon("layer-merge-down", [outline("arrow_download")]),
     Icon("layer-visible", [outline("eye")]),
     Icon("layer-hidden", [outline("eye_off")]),
+    # Status bar and side panel
+    Icon("cursor-position", [outline("cursor")]),
+    Icon("canvas-size", [outline("square")]),
+    # Paint's line width icon: three strokes from thin to thick.
+    Icon("line-thickness", [raw(f'<path d="M3.5 4.5h13" stroke="{FOREGROUND}" stroke-width="1" stroke-linecap="round"/>'
+                                f'<path d="M3.5 9.5h13" stroke="{FOREGROUND}" stroke-width="2" stroke-linecap="round"/>'
+                                f'<path d="M3.5 15h13" stroke="{FOREGROUND}" stroke-width="3.5" stroke-linecap="round"/>')]),
+    Icon("opacity", [fill("drop", FOREGROUND, clip=rect(0, 10.5, 20, 9.5)), outline("drop")]),
+    Icon("tolerance", [fill("paint_bucket", ACCENT, clip=polygon((0, 11), (13, 11), (13, 20), (0, 20))),
+                       outline("paint_bucket")]),
+    # Text tool
+    Icon("text-bold", [outline("text_bold")]),
+    Icon("text-italic", [outline("text_italic")]),
+    Icon("text-underline", [outline("text_underline")]),
+    Icon("text-strikethrough", [outline("text_strikethrough")]),
+    Icon("text-align-left", [outline("text_align_left")]),
+    Icon("text-align-center", [outline("text_align_center")]),
+    Icon("text-align-right", [outline("text_align_right")]),
     # File menu
     Icon("import", [outline("image_add")]),
     Icon("print", [outline("print")]),

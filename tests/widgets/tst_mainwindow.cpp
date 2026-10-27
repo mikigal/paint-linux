@@ -47,7 +47,9 @@ private Q_SLOTS:
         for (QAction *action : window.menuBar()->actions()) {
             menus.append(action->menu()->objectName());
         }
-        QCOMPARE(menus, (QStringList{QStringLiteral("menu.file"), QStringLiteral("menu.help")}));
+        QCOMPARE(menus, (QStringList{QStringLiteral("menu.file"), QStringLiteral("menu.edit"),
+                                     QStringLiteral("menu.image"), QStringLiteral("menu.view"),
+                                     QStringLiteral("menu.help")}));
         QVERIFY(window.findChild<QAction *>(QStringLiteral("action.file.quit")));
         QVERIFY(window.findChild<QAction *>(QStringLiteral("action.help.about")));
     }
