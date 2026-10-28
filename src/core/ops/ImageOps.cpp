@@ -16,6 +16,16 @@ qreal radians(qreal degrees)
     return degrees * std::numbers::pi / 180;
 }
 
+// QImage::flipped() arrived in Qt 6.9 and replaces mirrored(), deprecated from Qt 6.13.
+QImage flipped(const QImage &image, Qt::Orientations orientations)
+{
+#if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
+    return image.flipped(orientations);
+#else
+    return image.mirrored(orientations.testFlag(Qt::Horizontal), orientations.testFlag(Qt::Vertical));
+#endif
+}
+
 // Draws `image` through `transform` onto a transparent canvas that exactly holds the result.
 ImageOp transformed(const QImage &image, const QTransform &transform, bool smooth)
 {
@@ -51,7 +61,7 @@ ImageOp rotate(const QImage &image, RotateBy rotation)
         return {image.transformed(QTransform().rotate(-90)).convertToFormat(Format),
                 QTransform(0, -1, 1, 0, 0, w)};
     case RotateBy::Half:
-        return {image.flipped(Qt::Horizontal | Qt::Vertical).convertToFormat(Format),
+        return {flipped(image, Qt::Horizontal | Qt::Vertical).convertToFormat(Format),
                 QTransform(-1, 0, 0, -1, w, h)};
     }
     Q_UNREACHABLE_RETURN({});
@@ -71,9 +81,9 @@ ImageOp flip(const QImage &image, Qt::Orientation orientation)
 {
     // Paint's "Flip horizontal" mirrors left to right, "Flip vertical" turns it upside down.
     if (orientation == Qt::Horizontal) {
-        return {image.flipped(Qt::Horizontal), QTransform(-1, 0, 0, 1, image.width(), 0)};
+        return {flipped(image, Qt::Horizontal), QTransform(-1, 0, 0, 1, image.width(), 0)};
     }
-    return {image.flipped(Qt::Vertical), QTransform(1, 0, 0, -1, 0, image.height())};
+    return {flipped(image, Qt::Vertical), QTransform(1, 0, 0, -1, 0, image.height())};
 }
 
 ImageOp scale(const QImage &image, QSize size)

@@ -29,3 +29,6 @@ __pycache__/
 /packaging/arch/pkg/
 /packaging/arch/*.pkg.tar.*
 /packaging/arch/*.log
+
+# Release packages (packaging/release)
+/dist/

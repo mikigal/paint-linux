@@ -26,6 +26,10 @@ Presets: `dev`, `asan` (AddressSanitizer + UBSan), `release` (no tests, no autom
 
 ## Installing
 
+[Releases](https://github.com/mikigal/paint-linux/releases) carry packages for Arch Linux, Debian 13,
+Ubuntu 26.04, Fedora 44, openSUSE Tumbleweed and Leap 16.0, plus an AppImage and a tar.gz for any
+other distribution with glibc 2.35 or newer.
+
 Arch Linux / CachyOS: build and install a package from this tree with
 
 ```bash
@@ -64,6 +68,27 @@ tools/verify.sh --integration # plus cross-application tests in a headless KWin 
 - **Visual regression**: `tests/visual/run.py` drives the real app through scenarios
   (`tests/visual/scenarios.py`) and compares screenshots with `tests/visual/baselines/`; review the
   output and run `tests/visual/run.py --update` to accept changes.
+
+## Releasing
+
+Set the version in `CMakeLists.txt` and `pkgver` in `packaging/arch/PKGBUILD`, describe the release
+in the AppStream metadata (`packaging/pl.mikigal.PaintForLinux.metainfo.xml.in`), commit, then tag
+and push:
+
+```bash
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+The tag starts `.github/workflows/release.yml`: it runs the tests, builds each distribution's package
+in a container of that distribution (`packaging/release/build-package.sh`) and the AppImage and
+tar.gz in Ubuntu 22.04 (`packaging/release/build-appimage.sh`), installs and starts each one in a
+clean container, and publishes a release with all files and `SHA256SUMS`. Started by hand (Actions →
+Release → Run workflow) it builds and checks the same files without publishing. The scripts also run
+locally with Docker or Podman:
+
+```bash
+docker run --rm -v "$PWD:/src" -w /src fedora:44 packaging/release/build-package.sh fedora44
+```
 
 ## Performance
 
@@ -109,7 +134,8 @@ by Microsoft.
 src/core/      image model and algorithms (QtGui only, fully unit-tested)
 src/app/       widgets, main window, automation server
 tests/         unit/widget tests, golden images, visual scenarios, benchmarks, deterministic environment
-packaging/     .desktop entry, AppStream metadata, PKGBUILD
+packaging/     .desktop entry, AppStream metadata, PKGBUILD, release package scripts
 tools/         paintctl.py, headless-session.sh, verify.sh
 docs/          feature matrix and design notes (reference screenshots stay local)
+.github/       release workflow
 ```

@@ -1,6 +1,7 @@
 #include "document/Document.h"
 #include "document/History.h"
 #include "document/UndoStack.h"
+#include "ops/ImageOps.h"
 
 #include <QPainter>
 #include <QSignalSpy>
@@ -141,7 +142,7 @@ private Q_SLOTS:
 
         // A structural change holds the layers it replaced and their replacements, not the others.
         const Document snapshot = document;
-        document.layer(1).image = document.layer(1).image.flipped(Qt::Horizontal);
+        document.layer(1).image = flip(document.layer(1).image, Qt::Horizontal).image;
         history.recordDocumentChange(QStringLiteral("Flip one"), snapshot);
         QCOMPARE(history.stack()->cost(), 2 * 10 * 10 * 4 + 2 * 100 * 50 * 4);
         QCOMPARE(History::MemoryLimit, 1024LL * 1024 * 1024);

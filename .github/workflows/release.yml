@@ -1,0 +1,149 @@
+# Builds the packages for each supported distribution, the AppImage and a portable tar.gz, installs
+# and starts each one in a clean system, and publishes them all as a GitHub release when a version
+# tag (v1.2.3, matching CMakeLists.txt) is pushed. Run by hand, it builds and checks everything
+# without publishing; the files stay attached to the run.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: Version
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check that the tag, CMakeLists.txt and the PKGBUILD agree
+        id: version
+        run: |
+          version=$(packaging/release/version.sh)
+          pkgver=$(sed -n 's/^pkgver=//p' packaging/arch/PKGBUILD)
+          if [[ $pkgver != "$version" ]]; then
+            echo "::error::packaging/arch/PKGBUILD has pkgver=$pkgver, CMakeLists.txt has $version"
+            exit 1
+          fi
+          if [[ $GITHUB_REF_TYPE == tag && $GITHUB_REF_NAME != "v$version" ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match version $version in CMakeLists.txt"
+            exit 1
+          fi
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+
+  test:
+    name: Tests
+    runs-on: ubuntu-24.04
+    container: archlinux:latest
+    steps:
+      # Breeze, the KDE platform theme and Noto Sans make up the environment the golden images
+      # were drawn in (tests/env); qt6-imageformats writes TIFF.
+      - name: Install dependencies
+        run: >-
+          pacman -Syu --noconfirm --needed git base-devel cmake ninja qt6-base qt6-svg
+          qt6-imageformats libzip breeze plasma-integration noto-fonts desktop-file-utils appstream
+      - uses: actions/checkout@v7
+      # Optimised like the packages, which also keeps the timing checks meaningful on a shared runner.
+      - run: cmake --preset dev -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build --preset dev
+      - run: ctest --preset dev
+      - name: Keep the differing golden images
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-output
+          path: build/dev/test-output
+          if-no-files-found: ignore
+
+  packages:
+    name: Package (${{ matrix.label }})
+    needs: [version, test]
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { label: arch, image: 'archlinux:latest' }
+          - { label: debian13, image: 'debian:13' }
+          - { label: ubuntu26.04, image: 'ubuntu:26.04' }
+          - { label: fedora44, image: 'fedora:44' }
+          - { label: opensuse-tumbleweed, image: 'opensuse/tumbleweed:latest' }
+          - { label: opensuse-leap16.0, image: 'opensuse/leap:16.0' }
+    env:
+      IMAGE: ${{ matrix.image }}
+      LABEL: ${{ matrix.label }}
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build
+        run: docker run --rm -v "$PWD:/src" -w /src "$IMAGE" packaging/release/build-package.sh "$LABEL"
+      - name: Install and start in a clean container
+        run: |
+          package=$(cd dist && ls)
+          docker run --rm -v "$PWD/dist:/dist:ro" -v "$PWD/packaging/release:/release:ro" "$IMAGE" \
+            /release/test-package.sh "/dist/$package" "$VERSION"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: package-${{ matrix.label }}
+          path: dist/*
+          if-no-files-found: error
+
+  appimage:
+    name: AppImage and tar.gz
+    needs: [version, test]
+    runs-on: ubuntu-24.04
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build
+        run: docker run --rm -v "$PWD:/src" -w /src ubuntu:22.04 packaging/release/build-appimage.sh
+      # The AppImage leaves out the OpenGL and EGL libraries every desktop has; the runner lacks them.
+      - name: Install OpenGL and EGL
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libegl1 libglx0 libopengl0
+      - name: Start the AppImage and the unpacked tar.gz
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          name=paint-for-linux-$VERSION-x86_64
+          test "$(dist/$name.AppImage --version)" = "paint-for-linux $VERSION"
+          tar -xzf "dist/$name.tar.gz" -C "$RUNNER_TEMP"
+          test "$("$RUNNER_TEMP/$name/paint-for-linux" --version)" = "paint-for-linux $VERSION"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: appimage
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    name: Publish
+    if: github.ref_type == 'tag'
+    needs: [version, packages, appimage]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Create the release, or add the files to it when re-run
+        run: |
+          (cd dist && sha256sum -- * >SHA256SUMS)
+          sed "s/@VERSION@/$VERSION/g" packaging/release/notes.md >"$RUNNER_TEMP/notes.md"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* --verify-tag \
+              --title "Paint for Linux $VERSION" --notes-file "$RUNNER_TEMP/notes.md"
+          fi
