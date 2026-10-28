@@ -1,6 +1,10 @@
 {
     "version": 6,
-    "cmakeMinimumRequired": { "major": 3, "minor": 25, "patch": 0 },
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 25,
+        "patch": 0
+    },
     "configurePresets": [
         {
             "name": "base",
@@ -43,28 +47,73 @@
                 "PAINT_BUILD_TESTS": "OFF",
                 "PAINT_AUTOMATION": "OFF"
             }
+        },
+        {
+            "name": "bench",
+            "displayName": "Benchmarks (Release with tests)",
+            "inherits": "base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "PAINT_BUILD_TESTS": "ON",
+                "PAINT_AUTOMATION": "OFF"
+            }
         }
     ],
     "buildPresets": [
-        { "name": "dev", "configurePreset": "dev" },
-        { "name": "asan", "configurePreset": "asan" },
-        { "name": "release", "configurePreset": "release" }
+        {
+            "name": "dev",
+            "configurePreset": "dev"
+        },
+        {
+            "name": "asan",
+            "configurePreset": "asan"
+        },
+        {
+            "name": "release",
+            "configurePreset": "release"
+        },
+        {
+            "name": "bench",
+            "configurePreset": "bench"
+        }
     ],
     "testPresets": [
         {
             "name": "dev",
             "configurePreset": "dev",
-            "output": { "outputOnFailure": true },
-            "execution": { "noTestsAction": "error", "jobs": 8 }
+            "output": {
+                "outputOnFailure": true
+            },
+            "execution": {
+                "noTestsAction": "error",
+                "jobs": 8
+            }
         },
         {
             "name": "asan",
             "configurePreset": "asan",
-            "output": { "outputOnFailure": true },
-            "execution": { "noTestsAction": "error", "jobs": 8 },
+            "output": {
+                "outputOnFailure": true
+            },
+            "execution": {
+                "noTestsAction": "error",
+                "jobs": 8
+            },
             "environment": {
                 "ASAN_OPTIONS": "detect_leaks=0:abort_on_error=1",
                 "UBSAN_OPTIONS": "print_stacktrace=1:halt_on_error=1"
+            }
+        },
+        {
+            "name": "bench",
+            "configurePreset": "bench",
+            "output": {
+                "verbosity": "verbose"
+            },
+            "filter": {
+                "include": {
+                    "label": "benchmark"
+                }
             }
         }
     ]

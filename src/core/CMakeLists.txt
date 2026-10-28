@@ -9,6 +9,8 @@ add_library(paint_core STATIC
     document/History.cpp
     document/History.h
     document/Layer.h
+    document/UndoStack.cpp
+    document/UndoStack.h
     editor/Editor.cpp
     editor/Editor.h
     io/Encoders.cpp

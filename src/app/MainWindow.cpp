@@ -405,8 +405,8 @@ void MainWindow::connectActions()
     const auto syncHistory = [this, &history] {
         m_actions->setHistoryAvailable(history.canUndo(), history.canRedo());
     };
-    connect(history.stack(), &QUndoStack::indexChanged, this, syncHistory);
-    connect(history.stack(), &QUndoStack::cleanChanged, this, syncHistory);
+    connect(history.stack(), &UndoStack::indexChanged, this, syncHistory);
+    connect(history.stack(), &UndoStack::cleanChanged, this, syncHistory);
     connect(m_editor, &Editor::modifiedChanged, this, &MainWindow::updateWindowTitle);
     connect(m_editor, &Editor::fileChanged, this, [this] {
         updateWindowTitle();
@@ -454,7 +454,7 @@ void MainWindow::connectActions()
     thumbnailTimer->setSingleShot(true);
     thumbnailTimer->setInterval(150);
     connect(thumbnailTimer, &QTimer::timeout, m_layers, &LayersDock::refresh);
-    connect(history.stack(), &QUndoStack::indexChanged, thumbnailTimer, qOverload<>(&QTimer::start));
+    connect(history.stack(), &UndoStack::indexChanged, thumbnailTimer, qOverload<>(&QTimer::start));
 
     connect(m_canvas, &CanvasView::cursorPositionChanged, this, &MainWindow::setCursorPosition);
     connect(m_canvas, &CanvasView::contextMenuRequested, this, &MainWindow::showCanvasContextMenu);

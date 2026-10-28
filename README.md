@@ -10,8 +10,10 @@ App ID: `pl.mikigal.PaintForLinux` · executable: `paint-for-linux`
 
 ## Building
 
-Requirements: CMake ≥ 3.25, Ninja, a C++20 compiler and Qt ≥ 6.8 (Core, Gui, Widgets, Svg; Network
-and Test for development builds). Optional at runtime: KDE's `kimageformats` for HEIC/AVIF/JXL.
+Requirements: CMake ≥ 3.25, Ninja, a C++20 compiler, Qt ≥ 6.8 (Core, Gui, Widgets, Svg, Network,
+PrintSupport, DBus; Test for development builds) and libzip ≥ 1.7. Optional at runtime: KDE's
+`kimageformats` for HEIC/AVIF/JXL/PSD/XCF, `qt6-imageformats` for TIFF/WebP, and
+`xdg-desktop-portal` for setting the desktop background.
 
 ```bash
 cmake --preset dev            # Debug, tests and automation server enabled
@@ -19,7 +21,25 @@ cmake --build --preset dev
 ./build/dev/src/app/paint-for-linux
 ```
 
-Presets: `dev`, `asan` (AddressSanitizer + UBSan) and `release` (no tests, no automation).
+Presets: `dev`, `asan` (AddressSanitizer + UBSan), `release` (no tests, no automation) and `bench`
+(optimised, with tests; see Performance).
+
+## Installing
+
+Arch Linux / CachyOS: build and install a package from this tree with
+
+```bash
+cd packaging/arch && makepkg -si
+```
+
+Elsewhere, `cmake --install` puts the executable, the `.desktop` entry (with the image types the app
+opens), AppStream metadata and the icon under the chosen prefix:
+
+```bash
+cmake -S . -B build/install -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
+      -DPAINT_BUILD_TESTS=OFF -DPAINT_AUTOMATION=OFF -DPAINT_WARNINGS_AS_ERRORS=OFF
+cmake --build build/install && sudo cmake --install build/install
+```
 
 `tools/install-dev-desktop.sh` registers the development build with your desktop (a
 `pl.mikigal.PaintForLinux.desktop` entry and icon in `~/.local/share`), so the window gets its
@@ -44,6 +64,14 @@ tools/verify.sh --integration # plus cross-application tests in a headless KWin 
 - **Visual regression**: `tests/visual/run.py` drives the real app through scenarios
   (`tests/visual/scenarios.py`) and compares screenshots with `tests/visual/baselines/`; review the
   output and run `tests/visual/run.py --update` to accept changes.
+
+## Performance
+
+`ctest --preset bench` (after `cmake --preset bench && cmake --build --preset bench`) times the
+operations a user waits for on a 4K picture with three layers. On the development machine: a 300-point
+brush stroke 45 ms (crayon 290 ms), rotating and undoing 14 ms, saving a PNG 130 ms, opening 10 ms,
+repainting the canvas 0.5–1.5 ms. The undo history keeps up to 100 steps and 1 GiB; the oldest
+steps go first.
 
 ## Driving the app (automation)
 
@@ -71,7 +99,8 @@ has no Wayland serial.
 ```
 src/core/      image model and algorithms (QtGui only, fully unit-tested)
 src/app/       widgets, main window, automation server
-tests/         unit/widget tests, golden images, visual scenarios, deterministic environment
+tests/         unit/widget tests, golden images, visual scenarios, benchmarks, deterministic environment
+packaging/     .desktop entry, AppStream metadata, PKGBUILD
 tools/         paintctl.py, headless-session.sh, verify.sh
 docs/          feature matrix and design notes (reference screenshots stay local)
 ```

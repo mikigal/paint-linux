@@ -58,7 +58,7 @@ Editor::Editor(ToolSettings *settings, QObject *parent)
     connect(settings, &ToolSettings::textBackgroundChanged, this, [this] { m_text->refresh(); });
     connect(&m_history, &History::documentChanged, this, &Editor::pixelsChanged);
     connect(&m_history, &History::documentRestructured, this, &Editor::documentRestructured);
-    connect(m_history.stack(), &QUndoStack::cleanChanged, this,
+    connect(m_history.stack(), &UndoStack::cleanChanged, this,
             [this](bool clean) { Q_EMIT modifiedChanged(!clean); });
     // Switching tools finishes the old tool's work, e.g. places a moved selection.
     connect(settings, &ToolSettings::toolChanged, this, [this] {

@@ -53,10 +53,11 @@ void ThumbnailView::rebuild()
 
 void ThumbnailView::reposition()
 {
-    if (!m_viewport) {
+    const QWidget *viewport = m_viewport.data();
+    if (!viewport) {
         return;
     }
-    const QRect area = m_viewport->geometry();
+    const QRect area = viewport->geometry();
     move(area.right() - width() - Inset + 1, area.top() + Inset);
     raise();
 }

@@ -160,11 +160,12 @@ void SidePanel::syncTool(Tool tool)
 
 void SidePanel::reposition()
 {
-    if (!m_viewport) {
+    const QWidget *viewport = m_viewport.data();
+    if (!viewport) {
         return;
     }
     adjustSize();
-    const QRect area = m_viewport->geometry();
+    const QRect area = viewport->geometry();
     move(area.left() + PanelInset - 6, area.top() + std::max(0, (area.height() - height()) / 2));
     raise();
 }

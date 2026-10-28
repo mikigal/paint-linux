@@ -1,9 +1,10 @@
 #pragma once
 
+#include "document/UndoStack.h"
+
 #include <QImage>
 #include <QObject>
 #include <QRect>
-#include <QUndoStack>
 
 namespace paint {
 
@@ -16,12 +17,14 @@ class History : public QObject
     Q_OBJECT
 
 public:
-    // Paint keeps a long but finite history.
+    // Paint keeps a long but finite history; with large pictures memory runs out first.
     static constexpr int UndoLimit = 100;
+    static constexpr qint64 MemoryLimit = 1024LL * 1024 * 1024; // 1 GiB
 
     History(Document *document, QObject *parent = nullptr);
 
-    QUndoStack *stack() { return &m_stack; }
+    UndoStack *stack() { return &m_stack; }
+    const UndoStack *stack() const { return &m_stack; }
     bool canUndo() const { return m_stack.canUndo(); }
     bool canRedo() const { return m_stack.canRedo(); }
     void undo() { m_stack.undo(); }
@@ -49,7 +52,7 @@ private:
     friend class DocumentChangeCommand;
 
     Document *m_document;
-    QUndoStack m_stack;
+    UndoStack m_stack;
 };
 
 } // namespace paint

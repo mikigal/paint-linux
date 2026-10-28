@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AppStream metadata: what software centres (Discover, GNOME Software) show for the app. -->
+<component type="desktop-application">
+  <id>@PAINT_APP_ID@</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <name>@PAINT_APP_NAME@</name>
+  <summary>Draw, paint and edit pictures the way Paint does</summary>
+  <description>
+    <p>
+      @PAINT_APP_NAME@ brings the drawing app from Windows 11 to the Linux desktop: the same tools,
+      layout and ideas, as a native application that follows your desktop's theme, menus and file dialogs.
+    </p>
+    <ul>
+      <li>Pencil, nine brushes, eraser, fill and colour picker, with size and opacity</li>
+      <li>23 shapes with outline and fill styles, editable until you place them</li>
+      <li>Text with fonts, sizes and formatting</li>
+      <li>Rectangle and free-form selections you can move, resize and rotate</li>
+      <li>Layers, saved as OpenRaster projects that GIMP and Krita open too</li>
+      <li>Copy and paste or drag and drop pictures from other applications</li>
+      <li>PNG, JPEG, bitmaps, GIF, TIFF and HEIC; printing; setting the desktop background</li>
+    </ul>
+    <p>It is not affiliated with or endorsed by Microsoft.</p>
+  </description>
+  <launchable type="desktop-id">@PAINT_APP_ID@.desktop</launchable>
+  <developer id="pl.mikigal">
+    <name>mikigal</name>
+  </developer>
+  <url type="homepage">@PROJECT_HOMEPAGE_URL@</url>
+  <categories>
+    <category>Graphics</category>
+    <category>2DGraphics</category>
+    <category>RasterGraphics</category>
+  </categories>
+  <keywords>
+    <keyword>paint</keyword>
+    <keyword>draw</keyword>
+    <keyword>picture</keyword>
+    <keyword>image editor</keyword>
+  </keywords>
+  <provides>
+    <binary>@PAINT_EXECUTABLE@</binary>
+  </provides>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="@PROJECT_VERSION@" date="2026-10-28">
+      <description>
+        <p>First release: every tool and command of Paint except its AI features and Microsoft services.</p>
+      </description>
+    </release>
+  </releases>
+</component>

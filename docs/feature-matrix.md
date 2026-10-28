@@ -169,5 +169,6 @@ scanner import.
 | "Open with" integration | `.desktop` with image MimeTypes (incl. OpenRaster), app ID `pl.mikigal.PaintForLinux`; file:// URLs; several files open one window each | M8 | done |
 | Open files from the command line | `paint-for-linux FILE` | M2 | done |
 | Extra read formats | WebP, AVIF, JXL, PSD, XCF, RAW and more via kimageformats when installed | M8 | done |
-| Packaging | PKGBUILD (Arch/CachyOS), `cmake --install` | M10 | todo |
+| Packaging | PKGBUILD (Arch/CachyOS) and `cmake --install`: executable, `.desktop` entry, AppStream metadata (validated), icon; no RPATH | M10 | done |
+| Large pictures | Benchmarked on 4K with three layers (`ctest --preset bench`); undo history capped at 100 steps and 1 GiB | M10 | done |
 | Keyboard and screen readers | Every control has an accessible name (icon-only ones from their tooltip, swatches with their colour); Tab reaches the ribbon, palette and status bar; Space works the focused control | M9 | done |
