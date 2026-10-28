@@ -3,7 +3,10 @@
 
 #include <QApplication>
 #include <QCommandLineParser>
+#include <QDir>
 #include <QIcon>
+#include <QProcess>
+#include <QUrl>
 
 #ifdef PAINT_AUTOMATION_ENABLED
 #include "automation/AutomationServer.h"
@@ -38,7 +41,16 @@ int main(int argc, char *argv[])
     MainWindow window;
     window.show();
     if (const QStringList files = parser.positionalArguments(); !files.isEmpty()) {
-        window.openFile(files.first());
+        // Arguments may be paths or file:// URLs. "Open with" may pass several images: this window
+        // takes the first, each of the others opens in a window of its own, as in Paint.
+        const auto localPath = [](const QString &argument) {
+            const QUrl url = QUrl::fromUserInput(argument, QDir::currentPath(), QUrl::AssumeLocalFile);
+            return url.isLocalFile() ? url.toLocalFile() : argument;
+        };
+        window.openFile(localPath(files.first()));
+        for (const QString &file : files.mid(1)) {
+            QProcess::startDetached(QApplication::applicationFilePath(), {localPath(file)});
+        }
     }
 
 #ifdef PAINT_AUTOMATION_ENABLED

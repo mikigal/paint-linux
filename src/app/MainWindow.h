@@ -1,8 +1,12 @@
 #pragma once
 
+#include "io/ImageIO.h"
+#include "ops/Wallpaper.h"
+
 #include <QJsonObject>
 #include <QMainWindow>
 
+#include <memory>
 #include <optional>
 
 class ActionRegistry;
@@ -10,14 +14,17 @@ class CanvasView;
 class LayersDock;
 class QLabel;
 class QMimeData;
+class QMenu;
+class QPrinter;
+class RecentFiles;
 class RemoteImageLoader;
+class WallpaperPortal;
 class RibbonHost;
 class SidePanel;
 class TextFormatBar;
 
 namespace paint {
 class Editor;
-struct SaveFormat;
 class ToolSettings;
 } // namespace paint
 
@@ -85,6 +92,12 @@ private:
     std::optional<QColor> pickColor(const QColor &initial);
     bool saveProjectAs();
     void updateLayerState();
+    void rebuildRecentMenu();
+    QPrinter *printer();
+    void print();
+    void showPageSetup();
+    void showPrintPreview();
+    void setWallpaper(paint::WallpaperMode mode);
     void loadCustomColors();
     void showCanvasContextMenu(QPoint globalPosition);
     void setCursorPosition(std::optional<QPoint> position);
@@ -102,4 +115,11 @@ private:
     QLabel *m_canvasSizeLabel = nullptr;
     QLabel *m_fileSizeLabel = nullptr;
     RemoteImageLoader *m_remoteImages;
+    RecentFiles *m_recent;
+    QMenu *m_recentMenu = nullptr;
+    // The format the current file was last saved in (bitmaps of every depth share .bmp).
+    std::optional<paint::SaveFormat> m_savedFormat;
+    // Kept for the session, so page setup applies to later prints.
+    std::unique_ptr<QPrinter> m_printer;
+    WallpaperPortal *m_wallpaper;
 };

@@ -130,7 +130,7 @@ private Q_SLOTS:
 
     void unimplementedCommandsSaySo()
     {
-        m_window->actionRegistry()->get(ActionId::Print)->trigger();
+        m_window->actionRegistry()->get(ActionId::Thumbnail)->trigger(); // arrives in M9
         QVERIFY(m_window->statusBar()->currentMessage().contains(QLatin1String("not available yet")));
     }
 

@@ -34,14 +34,14 @@ a Linux-native form).
 | New | Ctrl+N, asks to save changes | Same | M2 | done |
 | Open | Ctrl+O, Windows file dialog | Ctrl+O, native/portal `QFileDialog` | M2 | done |
 | Import to canvas → From a file | Pastes a file as a floating selection | Same | M3 | done |
-| Recent | Recent files submenu | Same (`QSettings`) | M8 | todo |
+| Recent | Recent files submenu | Same: the last 10 opened or saved, newest first, missing files dropped; Clear list | M8 | done |
 | Save | Ctrl+S; new images default to PNG | Same | M2 | done |
-| Save as → PNG, JPEG, BMP, GIF, Other format | Format submenu; F12 | Same; F12 and Ctrl+Shift+S. PNG, JPEG and 24-bit BMP done, GIF and more in M8 | M2/M8 | in progress |
-| Other format | Monochrome/16/256/24-bit BMP, JPEG, GIF, TIFF, PNG, HEIC | Same (HEIC via kimageformats) | M8 | todo |
+| Save as → PNG, JPEG, BMP, GIF, Other format | Format submenu; F12 | Same; F12 and Ctrl+Shift+S. Save keeps the format chosen last (e.g. a 256-colour bitmap); files are replaced only once completely written | M2/M8 | done |
+| Other format | Monochrome/16/256/24-bit BMP, JPEG, GIF, TIFF, PNG, HEIC | Same: our own BMP (1/4/8/24-bit, Windows 16-colour palette) and GIF encoders, TIFF with LZW, HEIC when kimageformats can encode it; palette formats warn about colour loss first | M8 | done |
 | Save as project | `.paint`, keeps layers | OpenRaster `.ora` (`.paint` is undocumented): layers, names, visibility, the active layer, the background and DPI; GIMP, Krita and MyPaint open it. Any OpenRaster file opens, nested stacks, offsets and opacity baked into layers | M7 | adapted |
-| Print → Print, Page setup, Print preview | Windows dialogs | `QPrintDialog`, `QPageSetupDialog`, `QPrintPreviewDialog` | M8 | todo |
+| Print → Print, Page setup, Print preview | Windows dialogs | `QPrintDialog`, `QPageSetupDialog`, `QPrintPreviewDialog`; the picture prints at its own DPI from the top-left, shrunk to fit; page setup lasts the session | M8 | done |
 | Share | Windows share sheet | — | — | excluded |
-| Set as desktop background → Fill, Tile, Center | Sets wallpaper | XDG Wallpaper portal; modes pre-rendered to screen size | M8 | todo |
+| Set as desktop background → Fill, Tile, Center | Sets wallpaper | XDG Wallpaper portal (KDE, GNOME…); modes pre-rendered to the screen's size; tested against a fake portal on a private bus | M8 | done |
 | Image properties | Ctrl+E dialog | Same dialog: file attributes, units, black and white, canvas size, Default | M4 | done |
 | Exit | Alt+F4 | Quit, Ctrl+Q | M0 | done |
 
@@ -166,7 +166,7 @@ scanner import.
 
 | Feature | Notes | M | Status |
 |---|---|---|---|
-| "Open with" integration | `.desktop` with image MimeTypes, app ID `pl.mikigal.PaintForLinux` | M8 | in progress |
+| "Open with" integration | `.desktop` with image MimeTypes (incl. OpenRaster), app ID `pl.mikigal.PaintForLinux`; file:// URLs; several files open one window each | M8 | done |
 | Open files from the command line | `paint-for-linux FILE` | M2 | done |
-| Extra read formats | WebP, AVIF, JXL, PSD, XCF via kimageformats | M8 | todo |
+| Extra read formats | WebP, AVIF, JXL, PSD, XCF, RAW and more via kimageformats when installed | M8 | done |
 | Packaging | PKGBUILD (Arch/CachyOS), `cmake --install` | M10 | todo |

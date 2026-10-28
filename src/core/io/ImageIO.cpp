@@ -1,10 +1,13 @@
 #include "io/ImageIO.h"
 
+#include "io/Encoders.h"
+
 #include <QCoreApplication>
 #include <QFileInfo>
 #include <QImageReader>
 #include <QImageWriter>
 #include <QPainter>
+#include <QSaveFile>
 
 #include <algorithm>
 
@@ -18,6 +21,10 @@ QString tr(const char *text)
 }
 
 constexpr int JpegQuality = 92;
+constexpr int HeicQuality = 90;
+// QImageWriter's compression value for LZW in TIFF files.
+constexpr int TiffLzw = 1;
+constexpr int MaxGifSide = 65535;
 
 } // namespace
 
@@ -32,14 +39,27 @@ QString SaveFormat::nameFilter() const
 
 const QList<SaveFormat> &saveFormats()
 {
-    static const QList<SaveFormat> formats{
-        {"png", tr("PNG picture"), {QStringLiteral("png")}, true},
-        {"jpeg",
-         tr("JPEG picture"),
-         {QStringLiteral("jpg"), QStringLiteral("jpeg"), QStringLiteral("jpe"), QStringLiteral("jfif")},
-         false},
-        {"bmp", tr("24-bit Bitmap"), {QStringLiteral("bmp"), QStringLiteral("dib")}, false},
-    };
+    static const QList<SaveFormat> formats = [] {
+        const QStringList bitmap{QStringLiteral("bmp"), QStringLiteral("dib")};
+        QList<SaveFormat> list{
+            {"png", tr("PNG picture"), {QStringLiteral("png")}, true},
+            {"jpeg",
+             tr("JPEG picture"),
+             {QStringLiteral("jpg"), QStringLiteral("jpeg"), QStringLiteral("jpe"), QStringLiteral("jfif")},
+             false},
+            {"bmp", tr("24-bit Bitmap"), bitmap, false, 24},
+            {"bmp", tr("256 Color Bitmap"), bitmap, false, 8},
+            {"bmp", tr("16 Color Bitmap"), bitmap, false, 4},
+            {"bmp", tr("Monochrome Bitmap"), bitmap, false, 1},
+            {"gif", tr("GIF picture"), {QStringLiteral("gif")}, false, 8},
+            {"tiff", tr("TIFF picture"), {QStringLiteral("tif"), QStringLiteral("tiff")}, true},
+        };
+        // HEIC needs an encoder (kimageformats with libheif).
+        if (QImageWriter::supportedImageFormats().contains("heic")) {
+            list.append({"heic", tr("HEIC picture"), {QStringLiteral("heic"), QStringLiteral("heif")}, true});
+        }
+        return list;
+    }();
     return formats;
 }
 
@@ -121,12 +141,38 @@ QString saveImage(const QImage &image, const QString &path, const SaveFormat &fo
         output = image.convertToFormat(QImage::Format_ARGB32);
     }
 
-    QImageWriter writer(path, format.format);
-    if (format.format == "jpeg") {
-        writer.setQuality(JpegQuality);
+    // Written to a temporary file that replaces the old one only when complete.
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly)) {
+        return tr("This file can't be saved: %1").arg(file.errorString());
     }
-    if (!writer.write(output)) {
-        return tr("This file can't be saved: %1").arg(writer.errorString());
+    if (format.format == "bmp" || format.format == "gif") {
+        if (format.format == "gif" && (output.width() > MaxGifSide || output.height() > MaxGifSide)) {
+            file.cancelWriting();
+            return tr("This picture is too large for the GIF format.");
+        }
+        const QByteArray data =
+            format.format == "gif" ? encodeGif(output) : encodeBmp(output, format.bitsPerPixel);
+        if (file.write(data) != data.size()) {
+            file.cancelWriting();
+            return tr("This file can't be saved: %1").arg(file.errorString());
+        }
+    } else {
+        QImageWriter writer(&file, format.format);
+        if (format.format == "jpeg") {
+            writer.setQuality(JpegQuality);
+        } else if (format.format == "heic") {
+            writer.setQuality(HeicQuality);
+        } else if (format.format == "tiff") {
+            writer.setCompression(TiffLzw);
+        }
+        if (!writer.write(output)) {
+            file.cancelWriting();
+            return tr("This file can't be saved: %1").arg(writer.errorString());
+        }
+    }
+    if (!file.commit()) {
+        return tr("This file can't be saved: %1").arg(file.errorString());
     }
     return {};
 }

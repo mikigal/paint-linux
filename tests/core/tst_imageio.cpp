@@ -3,6 +3,8 @@
 #include "tools/ToolSettings.h"
 
 #include <QFile>
+#include <QImageReader>
+#include <QSet>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
@@ -73,6 +75,86 @@ private Q_SLOTS:
         }
     }
 
+    void everyFormatSavesAndReadsBack()
+    {
+        const QImage picture = testPicture(QSize(37, 23));
+        for (const SaveFormat &format : saveFormats()) {
+            const QString path = m_dir.filePath(QStringLiteral("all.") + format.suffixes.first());
+            QFile::remove(path);
+            QCOMPARE(saveImage(picture, path, format), QString());
+            QImageReader reader(path);
+            const QImage read = reader.read();
+            QVERIFY2(!read.isNull(),
+                     qPrintable(format.description + QLatin1Char(' ') + reader.errorString()));
+            QCOMPARE(read.size(), picture.size());
+        }
+    }
+
+    void bitmapDepthsReduceColoursLikePaint()
+    {
+        const QImage picture = testPicture(QSize(40, 30));
+        const auto saveAs = [&](int bits) {
+            for (const SaveFormat &format : saveFormats()) {
+                if (format.format == "bmp" && format.bitsPerPixel == bits) {
+                    const QString path = m_dir.filePath(QStringLiteral("depth%1.bmp").arg(bits));
+                    [&] { QCOMPARE(saveImage(picture, path, format), QString()); }();
+                    return QImage(path).convertToFormat(QImage::Format_RGB32);
+                }
+            }
+            return QImage();
+        };
+        // 24-bit is exact, with the resolution.
+        const QImage full = saveAs(24);
+        QCOMPARE(full, picture.convertToFormat(QImage::Format_RGB32));
+        QCOMPARE(QImage(m_dir.filePath(QStringLiteral("depth24.bmp"))).dotsPerMeterX(), 11811);
+        // 16 colours come from Windows' palette.
+        const QImage sixteen = saveAs(4);
+        QSet<QRgb> used;
+        for (int y = 0; y < sixteen.height(); ++y) {
+            for (int x = 0; x < sixteen.width(); ++x) {
+                used.insert(sixteen.pixel(x, y) & RGB_MASK);
+            }
+        }
+        QVERIFY(used.size() <= 16);
+        QVERIFY(used.contains(qRgb(255, 0, 0) & RGB_MASK));
+        // Monochrome splits at half brightness.
+        const QImage mono = saveAs(1);
+        QCOMPARE(mono.pixel(0, 0) & RGB_MASK, qRgb(0, 0, 0) & RGB_MASK);         // dark corner
+        QCOMPARE(mono.pixel(39, 29) & RGB_MASK, qRgb(255, 255, 255) & RGB_MASK); // light corner
+        QVERIFY(saveAs(8).width() == 40);
+        QCOMPARE(saveFormatForSuffix(QStringLiteral("bmp"))->bitsPerPixel, 24);
+        QVERIFY(saveFormatForSuffix(QStringLiteral("gif"))->reducesColors());
+        QVERIFY(!saveFormatForSuffix(QStringLiteral("png"))->reducesColors());
+    }
+
+    void gifKeepsUpToTwoHundredFiftySixColoursExactly()
+    {
+        // Enough pixels and colours to fill the LZW table and start it over several times.
+        QImage picture(300, 200, QImage::Format_RGB32);
+        quint32 seed = 7;
+        for (int y = 0; y < picture.height(); ++y) {
+            for (int x = 0; x < picture.width(); ++x) {
+                seed = seed * 1664525u + 1013904223u;
+                const int index = int(seed >> 24) % 200;
+                picture.setPixel(x, y, qRgb(index, 255 - index, (index * 7) % 256));
+            }
+        }
+        const QString path = m_dir.filePath(QStringLiteral("noise.gif"));
+        QCOMPARE(saveImage(picture, path, *saveFormatForSuffix(QStringLiteral("gif"))), QString());
+        QCOMPARE(QImage(path).convertToFormat(QImage::Format_RGB32), picture);
+
+        // A plain image, a single pixel and a two-colour one decode as well.
+        for (const QSize size : {QSize(1, 1), QSize(64, 64), QSize(3, 900)}) {
+            QImage plain(size, QImage::Format_RGB32);
+            plain.fill(qRgb(10, 200, 30));
+            if (size.width() > 1) {
+                plain.setPixel(0, 0, qRgb(255, 255, 255));
+            }
+            QCOMPARE(saveImage(plain, path, *saveFormatForSuffix(QStringLiteral("gif"))), QString());
+            QCOMPARE(QImage(path).convertToFormat(QImage::Format_RGB32), plain);
+        }
+    }
+
     void brokenFilesReportAnError()
     {
         const QString path = m_dir.filePath(QStringLiteral("broken.png"));
@@ -94,6 +176,26 @@ private Q_SLOTS:
     }
 
 private:
+    // A gradient from dark (top-left) to light (bottom-right) with a red block, at 300 DPI.
+    static QImage testPicture(QSize size)
+    {
+        QImage image(size, QImage::Format_ARGB32);
+        for (int y = 0; y < size.height(); ++y) {
+            for (int x = 0; x < size.width(); ++x) {
+                const int value = 255 * (x + y) / (size.width() + size.height() - 2);
+                image.setPixel(x, y, qRgb(value, value, value));
+            }
+        }
+        for (int y = 2; y < 8; ++y) {
+            for (int x = 10; x < 18; ++x) {
+                image.setPixel(x, y, qRgb(255, 0, 0));
+            }
+        }
+        image.setDotsPerMeterX(11811);
+        image.setDotsPerMeterY(11811);
+        return image;
+    }
+
     QTemporaryDir m_dir;
     std::unique_ptr<ToolSettings> m_settings;
     std::unique_ptr<Editor> m_editor;

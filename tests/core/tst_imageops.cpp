@@ -1,5 +1,6 @@
 #include "editor/Editor.h"
 #include "ops/ImageOps.h"
+#include "ops/Wallpaper.h"
 #include "tools/SelectionTool.h"
 #include "tools/ToolSettings.h"
 
@@ -144,6 +145,33 @@ private Q_SLOTS:
         QCOMPARE(m_editor->document().composite().dotsPerMeterX(), 11811);
         m_editor->undo();
         QCOMPARE(m_editor->document().dotsPerMeter(), Document::DefaultDotsPerMeter);
+    }
+
+    void wallpaperModesLayOutThePicture()
+    {
+        // A picture twice as wide as tall: red on the left half, blue on the right.
+        QImage picture(100, 50, QImage::Format_ARGB32_Premultiplied);
+        picture.fill(Qt::blue);
+        QPainter(&picture).fillRect(0, 0, 50, 50, Qt::red);
+
+        // Fill covers a square screen: the height fits, the sides are cropped.
+        const QImage fill = wallpaperImage(picture, QSize(200, 200), WallpaperMode::Fill);
+        QCOMPARE(fill.size(), QSize(200, 200));
+        QCOMPARE(fill.pixelColor(10, 100), QColor(Qt::red));
+        QCOMPARE(fill.pixelColor(190, 100), QColor(Qt::blue));
+        QCOMPARE(fill.pixelColor(60, 1), QColor(Qt::red)); // no black bars at the top
+
+        // Tile repeats it from the top-left corner.
+        const QImage tile = wallpaperImage(picture, QSize(250, 120), WallpaperMode::Tile);
+        QCOMPARE(tile.pixelColor(110, 60), QColor(Qt::red));
+        QCOMPARE(tile.pixelColor(160, 110), QColor(Qt::blue));
+
+        // Center keeps its size, on black.
+        const QImage center = wallpaperImage(picture, QSize(300, 150), WallpaperMode::Center);
+        QCOMPARE(center.pixelColor(150 - 25, 75), QColor(Qt::red));
+        QCOMPARE(center.pixelColor(150 + 25, 75), QColor(Qt::blue));
+        QCOMPARE(center.pixelColor(10, 10), QColor(Qt::black));
+        QCOMPARE(center.pixelColor(150, 140), QColor(Qt::black));
     }
 
 private:

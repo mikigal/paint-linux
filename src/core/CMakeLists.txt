@@ -11,6 +11,8 @@ add_library(paint_core STATIC
     document/Layer.h
     editor/Editor.cpp
     editor/Editor.h
+    io/Encoders.cpp
+    io/Encoders.h
     io/ImageIO.cpp
     io/ImageIO.h
     io/MimeImport.cpp
@@ -21,6 +23,8 @@ add_library(paint_core STATIC
     ops/FloodFill.h
     ops/ImageOps.cpp
     ops/ImageOps.h
+    ops/Wallpaper.cpp
+    ops/Wallpaper.h
     shapes/ShapeGeometry.cpp
     shapes/ShapeGeometry.h
     shapes/ShapeStyles.cpp

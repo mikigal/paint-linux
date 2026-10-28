@@ -19,7 +19,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Widgets Svg Network)
+find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Widgets Svg Network PrintSupport DBus)
 # OpenRaster projects are zip archives.
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBZIP REQUIRED IMPORTED_TARGET libzip>=1.7)

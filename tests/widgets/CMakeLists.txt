@@ -7,6 +7,7 @@ paint_add_test(tst_actions SOURCES tst_actions.cpp LIBRARIES paint_app)
 paint_add_test(tst_drawing SOURCES tst_drawing.cpp LIBRARIES paint_app)
 paint_add_test(tst_imagecommands SOURCES tst_imagecommands.cpp LIBRARIES paint_app)
 paint_add_test(tst_layerspanel SOURCES tst_layerspanel.cpp LIBRARIES paint_app)
+paint_add_test(tst_files SOURCES tst_files.cpp LIBRARIES paint_app)
 
 if(PAINT_AUTOMATION)
     paint_add_test(tst_automation SOURCES tst_automation.cpp LIBRARIES paint_app)

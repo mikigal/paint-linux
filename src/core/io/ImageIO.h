@@ -12,15 +12,19 @@ namespace paint {
 
 struct SaveFormat
 {
-    QByteArray format;    // QImageWriter format name
+    QByteArray format;    // QImageWriter format name; "bmp" and "gif" use our own encoders
     QString description;  // e.g. "PNG picture"
     QStringList suffixes; // first one is the default
     bool supportsAlpha;
+    int bitsPerPixel = 0; // bitmaps and GIF: the depth colours are reduced to
 
     QString nameFilter() const;
+    // Saving in palette formats loses colours; Paint warns first.
+    bool reducesColors() const { return bitsPerPixel > 0 && bitsPerPixel <= 8; }
 };
 
-// Formats Paint offers when saving, in its order. More arrive with M8 (GIF, TIFF, HEIC, BMP depths).
+// Formats Paint offers when saving, in its order: PNG, JPEG, the four bitmap depths, GIF, TIFF,
+// and HEIC where an encoder is installed. Bitmaps share their suffixes; .bmp means 24-bit.
 const QList<SaveFormat> &saveFormats();
 // Paint's "Save as project": layered OpenRaster, not in the Save as list.
 const SaveFormat &projectFormat();

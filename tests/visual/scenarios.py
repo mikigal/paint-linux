@@ -242,6 +242,7 @@ SCENARIOS: list[Scenario] = [
     ]),
     # Dialogs
     Scenario("dialog-about-light", steps=[invoke("help.about")], target="active"),
+    Scenario("dialog-print-preview-light", steps=[*PICTURE, invoke("file.printPreview")], target="active"),
     Scenario("dialog-resize-skew-light", steps=[invoke("image.resizeSkew")], target="active"),
     Scenario("dialog-resize-skew-dark", theme="dark", steps=[invoke("image.resizeSkew")], target="active"),
     Scenario("dialog-custom-rotate-light", steps=[invoke("image.rotateCustom")], target="active"),

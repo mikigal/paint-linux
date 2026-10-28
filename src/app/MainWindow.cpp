@@ -13,7 +13,10 @@
 #include "io/MimeImport.h"
 #include "io/OpenRaster.h"
 #include "panels/LayersDock.h"
+#include "platform/Printing.h"
+#include "platform/RecentFiles.h"
 #include "platform/RemoteImageLoader.h"
+#include "platform/WallpaperPortal.h"
 #include "ribbon/PaintRibbon.h"
 #include "ribbon/Ribbon.h"
 #include "ribbon/RibbonHost.h"
@@ -30,6 +33,8 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QCloseEvent>
+#include <QDateTime>
+#include <QDir>
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QFileDialog>
@@ -41,13 +46,19 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QMimeData>
+#include <QPageSetupDialog>
+#include <QPrintDialog>
+#include <QPrintPreviewDialog>
+#include <QPrinter>
 #include <QPushButton>
+#include <QScreen>
 #include <QSet>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QStatusBar>
 #include <QTimer>
 #include <QToolBar>
+#include <QWindow>
 
 #include <cmath>
 
@@ -93,6 +104,8 @@ MainWindow::MainWindow(QWidget *parent)
     , m_sidePanel(new SidePanel(m_settings, m_canvas))
     , m_layers(new LayersDock(m_editor, m_actions, this))
     , m_remoteImages(new RemoteImageLoader(this))
+    , m_recent(new RecentFiles(this))
+    , m_wallpaper(new WallpaperPortal(this))
 {
     setObjectName(QStringLiteral("mainWindow"));
     resize(DefaultWindowSize);
@@ -139,8 +152,10 @@ void MainWindow::createMenus()
     add(file, ActionId::Open);
     QMenu *import = submenu(file, QStringLiteral("import"), tr("&Import to canvas"));
     add(import, ActionId::ImportFromFile);
-    QMenu *recent = submenu(file, QStringLiteral("recent"), tr("&Recent"));
-    recent->addAction(tr("No recent images"))->setEnabled(false);
+    m_recentMenu = submenu(file, QStringLiteral("recent"), tr("&Recent"));
+    m_recentMenu->setIcon(QIcon::fromTheme(QStringLiteral("document-open-recent")));
+    rebuildRecentMenu();
+    connect(m_recent, &RecentFiles::changed, this, &MainWindow::rebuildRecentMenu);
     file->addSeparator();
     add(file, ActionId::Save);
     QMenu *saveAs = submenu(file, QStringLiteral("saveAs"), tr("Save &as"));
@@ -313,6 +328,20 @@ void MainWindow::connectActions()
     on(ActionId::SaveAsPng, [this] { saveImageAs(QStringLiteral("png")); });
     on(ActionId::SaveAsJpeg, [this] { saveImageAs(QStringLiteral("jpg")); });
     on(ActionId::SaveAsProject, &MainWindow::saveProjectAs);
+    on(ActionId::Print, &MainWindow::print);
+    on(ActionId::PageSetup, &MainWindow::showPageSetup);
+    on(ActionId::PrintPreview, &MainWindow::showPrintPreview);
+    on(ActionId::WallpaperFill, [this] { setWallpaper(WallpaperMode::Fill); });
+    on(ActionId::WallpaperTile, [this] { setWallpaper(WallpaperMode::Tile); });
+    on(ActionId::WallpaperCenter, [this] { setWallpaper(WallpaperMode::Center); });
+    connect(m_wallpaper, &WallpaperPortal::finished, this, [this](bool success, const QString &error) {
+        if (success) {
+            statusBar()->showMessage(tr("The picture is now the desktop background."), 4000);
+        } else if (!error.isEmpty()) {
+            QMessageBox::warning(this, QApplication::applicationDisplayName(),
+                                 tr("The desktop background couldn't be set.") + QLatin1Char('\n') + error);
+        }
+    });
     on(ActionId::AddLayer, [this] { m_editor->addLayer(); });
     on(ActionId::DuplicateLayer, [this] { m_editor->duplicateLayer(); });
     on(ActionId::DeleteLayer, [this] { m_editor->deleteLayer(); });
@@ -373,6 +402,7 @@ void MainWindow::connectActions()
         updateDocumentInfo();
     });
     connect(m_editor, &Editor::documentReplaced, this, [this, syncHistory] {
+        m_savedFormat.reset();
         syncHistory();
         updateDocumentInfo();
         updateLayerState();
@@ -429,6 +459,12 @@ void MainWindow::connectActions()
         ActionId::SaveAsJpeg,
         ActionId::SaveAsBmp,
         ActionId::SaveAsProject,
+        ActionId::Print,
+        ActionId::PageSetup,
+        ActionId::PrintPreview,
+        ActionId::WallpaperFill,
+        ActionId::WallpaperTile,
+        ActionId::WallpaperCenter,
         ActionId::AddLayer,
         ActionId::DuplicateLayer,
         ActionId::DeleteLayer,
@@ -778,12 +814,105 @@ bool MainWindow::openFile(const QString &path)
         QMessageBox::warning(this, QApplication::applicationDisplayName(), error);
         return false;
     }
+    m_recent->add(path);
     return true;
+}
+
+QPrinter *MainWindow::printer()
+{
+    if (!m_printer) {
+        m_printer = std::make_unique<QPrinter>(QPrinter::HighResolution);
+    }
+    const QString path = m_editor->filePath();
+    m_printer->setDocName(path.isEmpty() ? tr("Untitled") : QFileInfo(path).fileName());
+    return m_printer.get();
+}
+
+void MainWindow::print()
+{
+    QPrintDialog dialog(printer(), this);
+    dialog.setObjectName(QStringLiteral("dialog.print"));
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+    if (!printPicture(printer(), m_editor->document().composite(), m_editor->document().dotsPerMeter())) {
+        QMessageBox::warning(this, QApplication::applicationDisplayName(),
+                             tr("The picture couldn't be printed."));
+    }
+}
+
+void MainWindow::showPageSetup()
+{
+    QPageSetupDialog dialog(printer(), this);
+    dialog.setObjectName(QStringLiteral("dialog.pageSetup"));
+    dialog.exec();
+}
+
+void MainWindow::showPrintPreview()
+{
+    QPrintPreviewDialog preview(printer(), this);
+    preview.setObjectName(QStringLiteral("dialog.printPreview"));
+    connect(&preview, &QPrintPreviewDialog::paintRequested, this, [this](QPrinter *target) {
+        printPicture(target, m_editor->document().composite(), m_editor->document().dotsPerMeter());
+    });
+    preview.exec();
+}
+
+void MainWindow::setWallpaper(WallpaperMode mode)
+{
+    const QScreen *screen = windowHandle() ? windowHandle()->screen() : QGuiApplication::primaryScreen();
+    const QSize size = (QSizeF(screen->size()) * screen->devicePixelRatio()).toSize();
+    const QImage wallpaper = wallpaperImage(m_editor->document().composite(), size, mode);
+    // The desktop may keep reading the file, so it lives in our data folder; a new name each time
+    // makes the desktop notice the change, and older pictures go.
+    QDir folder(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) +
+                QStringLiteral("/wallpaper"));
+    folder.mkpath(QStringLiteral("."));
+    for (const QString &old : folder.entryList({QStringLiteral("wallpaper-*.png")}, QDir::Files)) {
+        folder.remove(old);
+    }
+    const QString path =
+        folder.filePath(QStringLiteral("wallpaper-%1.png").arg(QDateTime::currentMSecsSinceEpoch()));
+    if (!wallpaper.save(path, "PNG")) {
+        QMessageBox::warning(this, QApplication::applicationDisplayName(),
+                             tr("The desktop background couldn't be set."));
+        return;
+    }
+    m_wallpaper->setWallpaper(path);
+}
+
+void MainWindow::rebuildRecentMenu()
+{
+    m_recentMenu->clear();
+    const QStringList files = m_recent->files();
+    if (files.isEmpty()) {
+        m_recentMenu->addAction(tr("No recent images"))->setEnabled(false);
+        return;
+    }
+    for (qsizetype i = 0; i < files.size(); ++i) {
+        const QString &path = files.at(i);
+        QString name = QFileInfo(path).fileName();
+        name.replace(QLatin1Char('&'), QStringLiteral("&&"));
+        QAction *action =
+            m_recentMenu->addAction(i < 9 ? QStringLiteral("&%1 %2").arg(i + 1).arg(name) : name);
+        action->setObjectName(QStringLiteral("action.recent.%1").arg(i));
+        action->setToolTip(path);
+        action->setStatusTip(path);
+        connect(action, &QAction::triggered, this, [this, path] { openFile(path); });
+    }
+    m_recentMenu->addSeparator();
+    QAction *clear = m_recentMenu->addAction(tr("&Clear list"));
+    clear->setObjectName(QStringLiteral("action.recent.clear"));
+    connect(clear, &QAction::triggered, m_recent, &RecentFiles::clear);
 }
 
 bool MainWindow::saveImage()
 {
     const QString path = m_editor->filePath();
+    // Save keeps the format last chosen for this file, e.g. a 256-colour bitmap.
+    if (m_savedFormat && !path.isEmpty()) {
+        return saveFile(path, *m_savedFormat);
+    }
     if (const std::optional<SaveFormat> format = saveFormatForPath(path); !path.isEmpty() && format) {
         return saveFile(path, *format);
     }
@@ -811,15 +940,23 @@ bool MainWindow::saveImageAs(const QString &suffix)
     if (path.isEmpty()) {
         return false;
     }
-    // Without a known suffix, use the chosen filter's format and add its suffix.
-    std::optional<SaveFormat> format = saveFormatForPath(path);
-    if (!format) {
-        for (const SaveFormat &candidate : saveFormats()) {
-            if (candidate.nameFilter() == selected) {
-                format = candidate;
-            }
+    std::optional<SaveFormat> chosen;
+    for (const SaveFormat &candidate : saveFormats()) {
+        if (candidate.nameFilter() == selected) {
+            chosen = candidate;
         }
-        format = format ? format : saveFormats().first();
+    }
+    // The chosen filter decides when it fits the name (bitmap depths share .bmp); a name with
+    // another known suffix decides itself; without one, the filter's suffix is added.
+    std::optional<SaveFormat> format = saveFormatForPath(path);
+    const QString typed = QFileInfo(path).suffix().toLower();
+    if (chosen && (!format || chosen->suffixes.contains(typed))) {
+        if (!chosen->suffixes.contains(typed)) {
+            path += QLatin1Char('.') + chosen->suffixes.first();
+        }
+        format = std::move(chosen);
+    } else if (!format) {
+        format = saveFormats().first();
         path += QLatin1Char('.') + format->suffixes.first();
     }
     return saveFile(path, *format);
@@ -857,10 +994,27 @@ bool MainWindow::saveFile(const QString &path)
 
 bool MainWindow::saveFile(const QString &path, const SaveFormat &format)
 {
+    if (format.reducesColors()) {
+        // Like Paint, warn before colours are thrown away.
+        QMessageBox box(QMessageBox::Warning, QApplication::applicationDisplayName(),
+                        tr("Saving in this format may reduce the colours of the picture."),
+                        QMessageBox::NoButton, this);
+        box.setObjectName(QStringLiteral("dialog.colorLoss"));
+        box.setInformativeText(tr("Do you want to continue?"));
+        QPushButton *save = box.addButton(tr("&Save"), QMessageBox::AcceptRole);
+        box.addButton(QMessageBox::Cancel);
+        box.setDefaultButton(save);
+        box.exec();
+        if (box.clickedButton() != save) {
+            return false;
+        }
+    }
     if (const QString error = m_editor->save(path, format); !error.isEmpty()) {
         QMessageBox::warning(this, QApplication::applicationDisplayName(), error);
         return false;
     }
+    m_savedFormat = format;
+    m_recent->add(path);
     return true;
 }
 
@@ -956,5 +1110,6 @@ QJsonObject MainWindow::automationState() const
         {QStringLiteral("ribbonAutoHide"), m_ribbonHost->autoHide()},
         {QStringLiteral("layersPanel"), m_layers->isVisible()},
         {QStringLiteral("backgroundVisible"), m_editor->document().isBackgroundVisible()},
+        {QStringLiteral("statusMessage"), statusBar()->currentMessage()},
     };
 }
