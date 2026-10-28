@@ -66,7 +66,7 @@ a Linux-native form).
 | Zoom presets | 12.5–800 %, typed values | Same | M2 | done |
 | Rulers | Ctrl+R | Same: image pixels from the picture's corner, following zoom and scrolling, the pointer marked | M9 | done |
 | Gridlines | Ctrl+G | Same; at least 8 screen pixels apart, so up close they outline every pixel | M9 | done |
-| Status bar | Toggle | Same | M9 | todo |
+| Status bar | Toggle | Same; hiding it gives the canvas the room | M9 | done |
 | Full screen | F11 | Same: the picture alone on black until a key or click | M9 | done |
 | Thumbnail | Floating thumbnail window | A card in the canvas's top-right corner (Wayland does not let apps place windows); outlines what is in view, a click moves the view | M9 | adapted |
 
@@ -88,7 +88,7 @@ a Linux-native form).
 
 | Feature | Paint | Paint for Linux | M | Status |
 |---|---|---|---|---|
-| Crop | Needs a selection | Same | M3 | todo |
+| Crop | Needs a selection | Same: disabled until there is a selection; crops to it like Ctrl+Shift+X | M3 | done |
 | Resize and skew | Ctrl+W: percentage/pixels, aspect lock, skew degrees | Same dialog; works on the selection when there is one | M4 | done |
 | Rotate | Right 90°, left 90°, 180°, Custom rotate… | Same; on the selection when there is one, else the whole image (custom angles grow the canvas) | M4 | done |
 | Flip | Vertical, horizontal | Same; on the selection when there is one, else the whole image | M4 | done |

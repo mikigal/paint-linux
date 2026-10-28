@@ -7,9 +7,11 @@
 #include <QAction>
 #include <QApplication>
 #include <QScrollBar>
+#include <QStatusBar>
 #include <QTest>
 
-// The View menu's options: rulers, gridlines, the thumbnail and the full screen picture.
+// The View menu's options: rulers, gridlines, the status bar, the thumbnail and the full screen
+// picture.
 class TestView : public QObject
 {
     Q_OBJECT
@@ -67,6 +69,22 @@ private Q_SLOTS:
         QVERIFY(canvas->gridVisible());
         QVERIFY(pixelAt(QPoint(10, 5)).lightness() < 240);
         QCOMPARE(pixelAt(QPoint(15, 5)), QColor(Qt::white));
+    }
+
+    void statusBarCanBeHidden()
+    {
+        QAction *action = m_window->actionRegistry()->get(ActionId::StatusBar);
+        CanvasView *canvas = m_window->canvas();
+        QVERIFY(action->isChecked());
+        QVERIFY(m_window->statusBar()->isVisible());
+        const int height = canvas->height();
+        action->trigger();
+        QVERIFY(!m_window->statusBar()->isVisible());
+        // The canvas takes the freed room.
+        QTRY_VERIFY(canvas->height() > height);
+        action->trigger();
+        QVERIFY(m_window->statusBar()->isVisible());
+        QTRY_COMPARE(canvas->height(), height);
     }
 
     void thumbnailMovesTheView()
