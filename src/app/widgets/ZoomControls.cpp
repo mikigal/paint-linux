@@ -2,6 +2,7 @@
 
 #include "ActionRegistry.h"
 #include "canvas/CanvasView.h"
+#include "ui/Accessibility.h"
 #include "ui/Icons.h"
 
 #include <QAction>
@@ -27,6 +28,7 @@ QToolButton *zoomButton(QAction *action, const QString &iconName, const QString 
     button->setAutoRaise(true);
     button->setIcon(paint::ui::icon(iconName));
     button->setToolTip(action->toolTip());
+    paint::ui::nameAfterToolTip(button);
     QObject::connect(button, &QToolButton::clicked, action, &QAction::trigger);
     return button;
 }
@@ -72,6 +74,7 @@ ZoomControls::ZoomControls(CanvasView *canvas, ActionRegistry *actions, QWidget 
     m_slider->setRange(0, SliderSteps);
     m_slider->setFixedWidth(110);
     m_slider->setToolTip(tr("Zoom"));
+    m_slider->setAccessibleName(tr("Zoom"));
 
     auto *layout = new QHBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);

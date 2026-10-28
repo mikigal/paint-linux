@@ -104,7 +104,7 @@ private:
         QTimer::singleShot(0, this, [answer] {
             // The platform theme may show its own copy of the message box, so it is known by its text.
             auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
-            QVERIFY2(box && box->text().contains(QLatin1String("reduce the colours")),
+            QVERIFY2(box && box->text().contains(QLatin1String("reduce the colors")),
                      "expected the colour warning");
             for (QAbstractButton *button : box->buttons()) {
                 if (box->buttonRole(button) == answer) {

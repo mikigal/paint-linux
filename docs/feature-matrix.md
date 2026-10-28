@@ -37,7 +37,7 @@ a Linux-native form).
 | Recent | Recent files submenu | Same: the last 10 opened or saved, newest first, missing files dropped; Clear list | M8 | done |
 | Save | Ctrl+S; new images default to PNG | Same | M2 | done |
 | Save as → PNG, JPEG, BMP, GIF, Other format | Format submenu; F12 | Same; F12 and Ctrl+Shift+S. Save keeps the format chosen last (e.g. a 256-colour bitmap); files are replaced only once completely written | M2/M8 | done |
-| Other format | Monochrome/16/256/24-bit BMP, JPEG, GIF, TIFF, PNG, HEIC | Same: our own BMP (1/4/8/24-bit, Windows 16-colour palette) and GIF encoders, TIFF with LZW, HEIC when kimageformats can encode it; palette formats warn about colour loss first | M8 | done |
+| Other format | Monochrome/16/256/24-bit BMP, JPEG, GIF, TIFF, PNG, HEIC | Same: our own BMP (1/4/8/24-bit, Windows 16-colour palette) and GIF encoders, TIFF with LZW, HEIC when kimageformats can encode it; palette formats warn about color loss first | M8 | done |
 | Save as project | `.paint`, keeps layers | OpenRaster `.ora` (`.paint` is undocumented): layers, names, visibility, the active layer, the background and DPI; GIMP, Krita and MyPaint open it. Any OpenRaster file opens, nested stacks, offsets and opacity baked into layers | M7 | adapted |
 | Print → Print, Page setup, Print preview | Windows dialogs | `QPrintDialog`, `QPageSetupDialog`, `QPrintPreviewDialog`; the picture prints at its own DPI from the top-left, shrunk to fit; page setup lasts the session | M8 | done |
 | Share | Windows share sheet | — | — | excluded |
@@ -64,11 +64,11 @@ a Linux-native form).
 |---|---|---|---|---|
 | Zoom → 100%, in, out, fit | Ctrl+0, Ctrl+PgUp/PgDn, Ctrl+1 | Same + Ctrl+wheel | M2 | done |
 | Zoom presets | 12.5–800 %, typed values | Same | M2 | done |
-| Rulers | Ctrl+R | Same | M9 | todo |
-| Gridlines | Ctrl+G | Same | M9 | todo |
+| Rulers | Ctrl+R | Same: image pixels from the picture's corner, following zoom and scrolling, the pointer marked | M9 | done |
+| Gridlines | Ctrl+G | Same; at least 8 screen pixels apart, so up close they outline every pixel | M9 | done |
 | Status bar | Toggle | Same | M9 | todo |
-| Full screen | F11 | Same | M9 | todo |
-| Thumbnail | Floating thumbnail window | Same | M9 | todo |
+| Full screen | F11 | Same: the picture alone on black until a key or click | M9 | done |
+| Thumbnail | Floating thumbnail window | A card in the canvas's top-right corner (Wayland does not let apps place windows); outlines what is in view, a click moves the view | M9 | adapted |
 
 ## Selection group
 
@@ -170,3 +170,4 @@ scanner import.
 | Open files from the command line | `paint-for-linux FILE` | M2 | done |
 | Extra read formats | WebP, AVIF, JXL, PSD, XCF, RAW and more via kimageformats when installed | M8 | done |
 | Packaging | PKGBUILD (Arch/CachyOS), `cmake --install` | M10 | todo |
+| Keyboard and screen readers | Every control has an accessible name (icon-only ones from their tooltip, swatches with their colour); Tab reaches the ribbon, palette and status bar; Space works the focused control | M9 | done |

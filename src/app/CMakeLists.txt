@@ -8,7 +8,11 @@ add_library(paint_app STATIC
     MainWindow.h
     canvas/CanvasView.cpp
     canvas/CanvasView.h
+    canvas/Ruler.cpp
+    canvas/Ruler.h
     canvas/SidePanel.cpp
+    canvas/ThumbnailView.cpp
+    canvas/ThumbnailView.h
     canvas/SidePanel.h
     dialogs/CustomRotateDialog.cpp
     dialogs/CustomRotateDialog.h
@@ -42,12 +46,16 @@ add_library(paint_app STATIC
     ribbon/RibbonHost.h
     ribbon/ShapeGallery.cpp
     ribbon/ShapeGallery.h
+    ui/Accessibility.cpp
+    ui/Accessibility.h
     ui/BrushPreview.cpp
     ui/BrushPreview.h
     ui/Icons.cpp
     ui/Icons.h
     ui/Names.cpp
     ui/Names.h
+    widgets/FullScreenView.cpp
+    widgets/FullScreenView.h
     widgets/TextFormatBar.cpp
     widgets/TextFormatBar.h
     widgets/ZoomControls.cpp

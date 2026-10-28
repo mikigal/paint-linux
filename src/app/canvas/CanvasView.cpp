@@ -1,5 +1,6 @@
 #include "canvas/CanvasView.h"
 
+#include "canvas/Ruler.h"
 #include "document/Document.h"
 #include "editor/Editor.h"
 #include "io/MimeImport.h"
@@ -64,8 +65,14 @@ const QList<double> &CanvasView::zoomPresets()
 CanvasView::CanvasView(Editor *editor, QWidget *parent)
     : QAbstractScrollArea(parent)
     , m_editor(editor)
+    , m_horizontalRuler(new Ruler(Qt::Horizontal, this))
+    , m_verticalRuler(new Ruler(Qt::Vertical, this))
 {
+    m_horizontalRuler->hide();
+    m_verticalRuler->hide();
     setObjectName(QStringLiteral("canvasView"));
+    setAccessibleName(tr("Canvas"));
+    setAccessibleDescription(tr("The picture being edited"));
     viewport()->setObjectName(QStringLiteral("canvasView.viewport"));
     setFrameShape(QFrame::NoFrame);
     setFocusPolicy(Qt::StrongFocus);
@@ -116,6 +123,7 @@ void CanvasView::handlePixelsChanged(const QRect &area)
     painter.drawImage(clipped.topLeft(), m_editor->document().composite(clipped));
     painter.end();
     viewport()->update(documentToViewport(clipped).toAlignedRect().adjusted(-2, -2, 2, 2));
+    Q_EMIT pictureChanged();
 }
 
 void CanvasView::handleDocumentReplaced()
@@ -131,6 +139,7 @@ void CanvasView::handleDocumentReplaced()
         zoomToActualSize();
     }
     viewport()->update();
+    Q_EMIT pictureChanged();
 }
 
 void CanvasView::handleDocumentRestructured()
@@ -139,6 +148,7 @@ void CanvasView::handleDocumentRestructured()
     m_composite = m_editor->document().composite();
     updateScrollBars();
     viewport()->update();
+    Q_EMIT pictureChanged();
 }
 
 QTransform CanvasView::documentToViewportTransform() const
@@ -210,8 +220,10 @@ void CanvasView::setZoom(double zoom, QPointF anchor)
     horizontalScrollBar()->setValue(horizontalScrollBar()->value() + int(std::round(misplaced.x())));
     verticalScrollBar()->setValue(verticalScrollBar()->value() + int(std::round(misplaced.y())));
     viewport()->update();
+    updateRulers();
     updateCursor();
     Q_EMIT zoomChanged(m_zoom);
+    Q_EMIT viewChanged();
 }
 
 void CanvasView::zoomIn(QPointF anchor)
@@ -355,6 +367,9 @@ void CanvasView::paintEvent(QPaintEvent *event)
     // Magnified pixels stay crisp; reduced images are smoothed.
     painter.setRenderHint(QPainter::SmoothPixmapTransform, m_zoom < 1.0);
     painter.drawImage(canvas, m_composite);
+    if (m_grid) {
+        paintGrid(painter, canvas, event->rect());
+    }
 
     painter.setRenderHint(QPainter::Antialiasing, false);
     QColor border = palette().color(QPalette::WindowText);
@@ -459,11 +474,110 @@ void CanvasView::resizeEvent(QResizeEvent *event)
 {
     QAbstractScrollArea::resizeEvent(event);
     updateScrollBars();
+    layoutRulers();
+    Q_EMIT viewChanged();
 }
 
 void CanvasView::scrollContentsBy(int, int)
 {
     viewport()->update();
+    updateRulers();
+    Q_EMIT viewChanged();
+}
+
+QRectF CanvasView::visibleDocumentRect() const
+{
+    const QRectF view(viewportToDocument(QPointF()),
+                      viewportToDocument(QPointF(viewport()->width(), viewport()->height())));
+    return view.intersected(QRectF(m_editor->document().rect()));
+}
+
+void CanvasView::centerOn(QPointF documentPoint)
+{
+    const QPointF misplaced =
+        canvasRect().topLeft() + documentPoint * m_zoom - QRectF(viewport()->rect()).center();
+    horizontalScrollBar()->setValue(horizontalScrollBar()->value() + int(std::round(misplaced.x())));
+    verticalScrollBar()->setValue(verticalScrollBar()->value() + int(std::round(misplaced.y())));
+}
+
+void CanvasView::setRulersVisible(bool visible)
+{
+    if (visible == m_rulers) {
+        return;
+    }
+    m_rulers = visible;
+    // The rulers take a strip along the top and left of the workspace.
+    setViewportMargins(visible ? Ruler::Thickness : 0, visible ? Ruler::Thickness : 0, 0, 0);
+    m_horizontalRuler->setVisible(visible);
+    m_verticalRuler->setVisible(visible);
+    updateScrollBars();
+    layoutRulers();
+}
+
+void CanvasView::layoutRulers()
+{
+    if (!m_rulers) {
+        return;
+    }
+    const QRect area = viewport()->geometry();
+    // The horizontal ruler also covers the corner square above the vertical one.
+    m_horizontalRuler->setGeometry(area.left() - Ruler::Thickness, area.top() - Ruler::Thickness,
+                                   area.width() + Ruler::Thickness, Ruler::Thickness);
+    m_horizontalRuler->setOffset(Ruler::Thickness);
+    m_verticalRuler->setGeometry(area.left() - Ruler::Thickness, area.top(), Ruler::Thickness, area.height());
+    updateRulers();
+}
+
+void CanvasView::updateRulers()
+{
+    if (m_rulers) {
+        m_horizontalRuler->update();
+        m_verticalRuler->update();
+    }
+}
+
+void CanvasView::setGridVisible(bool visible)
+{
+    if (visible != m_grid) {
+        m_grid = visible;
+        viewport()->update();
+    }
+}
+
+int CanvasView::gridSpacing(double zoom)
+{
+    return Ruler::step(zoom, 8);
+}
+
+void CanvasView::paintGrid(QPainter &painter, const QRectF &canvas, const QRect &exposed)
+{
+    const QRectF visible = canvas.intersected(QRectF(exposed));
+    if (visible.isEmpty()) {
+        return;
+    }
+    const int spacing = gridSpacing(m_zoom);
+    painter.save();
+    painter.setRenderHint(QPainter::Antialiasing, false);
+    // Light enough not to hide the picture, dark enough to show on white.
+    painter.setPen(QPen(QColor(0x80, 0x80, 0x80, 0x78), 1));
+    const auto firstLine = [&](qreal edge, qreal start) {
+        return int(std::ceil((edge - start) / m_zoom / spacing)) * spacing;
+    };
+    for (int x = firstLine(visible.left(), canvas.left());; x += spacing) {
+        const qreal position = std::round(canvas.left() + x * m_zoom);
+        if (position > visible.right()) {
+            break;
+        }
+        painter.drawLine(QPointF(position, visible.top()), QPointF(position, visible.bottom()));
+    }
+    for (int y = firstLine(visible.top(), canvas.top());; y += spacing) {
+        const qreal position = std::round(canvas.top() + y * m_zoom);
+        if (position > visible.bottom()) {
+            break;
+        }
+        painter.drawLine(QPointF(visible.left(), position), QPointF(visible.right(), position));
+    }
+    painter.restore();
 }
 
 void CanvasView::wheelEvent(QWheelEvent *event)
@@ -545,6 +659,8 @@ void CanvasView::mouseMoveEvent(QMouseEvent *event)
         updateCursor();
     }
     m_pointer = point;
+    m_horizontalRuler->setMarker(point.x());
+    m_verticalRuler->setMarker(point.y());
     if (m_drawingButton != Qt::NoButton) {
         m_editor->currentTool()->move(pointerEvent(event, Qt::NoButton));
     } else if (m_editor->settings().tool() == Tool::Text) {
@@ -619,6 +735,8 @@ void CanvasView::setHoverPosition(std::optional<QPointF> position)
 
 void CanvasView::leaveEvent(QEvent *event)
 {
+    m_horizontalRuler->setMarker(std::nullopt);
+    m_verticalRuler->setMarker(std::nullopt);
     Q_EMIT cursorPositionChanged(std::nullopt);
     setHoverPosition(std::nullopt);
     QAbstractScrollArea::leaveEvent(event);

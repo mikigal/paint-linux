@@ -3,6 +3,7 @@
 #include "color/DefaultPalette.h"
 #include "ribbon/RibbonButton.h"
 #include "tools/ToolSettings.h"
+#include "ui/Accessibility.h"
 #include "ui/Icons.h"
 #include "ui/Names.h"
 
@@ -23,12 +24,15 @@ ColorSwatch::ColorSwatch(int diameter, QWidget *parent)
     setAttribute(Qt::WA_Hover);
     setFocusPolicy(Qt::TabFocus);
     setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    ui::nameAfterToolTip(this);
 }
 
 void ColorSwatch::setColor(const QColor &color)
 {
     if (color != m_color) {
         m_color = color;
+        // Screen readers say which colour a swatch holds.
+        setAccessibleDescription(color.isValid() ? color.name().toUpper() : tr("Empty"));
         update();
     }
 }

@@ -226,6 +226,16 @@ SCENARIOS: list[Scenario] = [
     Scenario("layers-menu-light", steps=[
         invoke("view.layersPanel"), invoke("layer.add"),
         ("click", {"target": "layers.list", "at": [48, 30], "button": "right"})]),
+    # View: rulers in image pixels with the pointer marked, gridlines that follow the zoom.
+    Scenario("view-rulers-grid-light", steps=[
+        *PICTURE, invoke("view.rulers"), invoke("view.gridlines"),
+        ("mouse", {"action": "move", "relativeTo": "canvasView.viewport", "x": 330, "y": 210})]),
+    Scenario("view-thumbnail-light", steps=[
+        *PICTURE, invoke("view.zoomIn"), invoke("view.zoomIn"), invoke("view.thumbnail"), AWAY]),
+    Scenario("view-full-screen-dark", theme="dark", steps=[*PICTURE, invoke("view.fullScreen")], target="active"),
+    Scenario("view-grid-zoomed-dark", theme="dark", steps=[
+        *PICTURE, invoke("view.gridlines"), invoke("view.rulers"), invoke("view.zoomIn"), invoke("view.zoomIn"),
+        invoke("view.zoomIn"), AWAY]),
     # Image commands
     Scenario("image-rotated-right-light", steps=[*PICTURE, invoke("image.rotateRight"), AWAY]),
     Scenario("image-inverted-dark", theme="dark", steps=[*PICTURE, invoke("image.invertColors"), AWAY]),

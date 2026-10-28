@@ -128,12 +128,6 @@ private Q_SLOTS:
                        }));
     }
 
-    void unimplementedCommandsSaySo()
-    {
-        m_window->actionRegistry()->get(ActionId::Thumbnail)->trigger(); // arrives in M9
-        QVERIFY(m_window->statusBar()->currentMessage().contains(QLatin1String("not available yet")));
-    }
-
     void zoomActionsDriveCanvasAndStatusBar()
     {
         CanvasView *canvas = m_window->canvas();

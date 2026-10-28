@@ -48,6 +48,7 @@ RibbonHost::RibbonHost(Ribbon *ribbon, QMenu *options, QWidget *parent)
     m_options->setAutoRaise(true);
     m_options->setPopupMode(QToolButton::InstantPopup);
     m_options->setToolTip(tr("Toolbar options"));
+    m_options->setAccessibleName(tr("Toolbar options"));
     m_options->setMenu(options);
     // Paint's chevron sits in the bottom-right corner of the ribbon.
     m_options->setParent(ribbon);

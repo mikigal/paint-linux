@@ -4,6 +4,7 @@
 #include "PaintConfig.h"
 #include "canvas/CanvasView.h"
 #include "canvas/SidePanel.h"
+#include "canvas/ThumbnailView.h"
 #include "dialogs/CustomRotateDialog.h"
 #include "dialogs/EditColorsDialog.h"
 #include "dialogs/ImagePropertiesDialog.h"
@@ -25,6 +26,7 @@
 #include "tools/TextTool.h"
 #include "tools/ToolSettings.h"
 #include "ui/Icons.h"
+#include "widgets/FullScreenView.h"
 #include "widgets/TextFormatBar.h"
 #include "widgets/ZoomControls.h"
 
@@ -52,7 +54,6 @@
 #include <QPrinter>
 #include <QPushButton>
 #include <QScreen>
-#include <QSet>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QStatusBar>
@@ -60,6 +61,7 @@
 #include <QToolBar>
 #include <QWindow>
 
+#include <algorithm>
 #include <cmath>
 
 using namespace paint;
@@ -106,6 +108,7 @@ MainWindow::MainWindow(QWidget *parent)
     , m_remoteImages(new RemoteImageLoader(this))
     , m_recent(new RecentFiles(this))
     , m_wallpaper(new WallpaperPortal(this))
+    , m_thumbnail(new ThumbnailView(m_canvas))
 {
     setObjectName(QStringLiteral("mainWindow"));
     resize(DefaultWindowSize);
@@ -327,6 +330,7 @@ void MainWindow::connectActions()
     on(ActionId::SaveAs, [this] { saveImageAs(); });
     on(ActionId::SaveAsPng, [this] { saveImageAs(QStringLiteral("png")); });
     on(ActionId::SaveAsJpeg, [this] { saveImageAs(QStringLiteral("jpg")); });
+    on(ActionId::SaveAsGif, [this] { saveImageAs(QStringLiteral("gif")); });
     on(ActionId::SaveAsProject, &MainWindow::saveProjectAs);
     on(ActionId::Print, &MainWindow::print);
     on(ActionId::PageSetup, &MainWindow::showPageSetup);
@@ -381,11 +385,18 @@ void MainWindow::connectActions()
     on(ActionId::ZoomOut, [this] { m_canvas->zoomOut(); });
     on(ActionId::ZoomActualSize, [this] { m_canvas->zoomToActualSize(); });
     on(ActionId::ZoomFit, [this] { m_canvas->zoomToFit(); });
-    on(ActionId::FullScreen, [this](bool checked) { checked ? showFullScreen() : showNormal(); });
+    on(ActionId::FullScreen, [this](bool checked) {
+        if (checked) {
+            showPictureFullScreen();
+        }
+    });
+    connect(m_actions->get(ActionId::Thumbnail), &QAction::toggled, m_thumbnail, &QWidget::setVisible);
     on(ActionId::ToolbarAlwaysShow, [this] { m_ribbonHost->setAutoHide(false); });
     on(ActionId::ToolbarAutoHide, [this] { m_ribbonHost->setAutoHide(true); });
 
     connect(m_actions->get(ActionId::StatusBar), &QAction::toggled, statusBar(), &QWidget::setVisible);
+    connect(m_actions->get(ActionId::Rulers), &QAction::toggled, m_canvas, &CanvasView::setRulersVisible);
+    connect(m_actions->get(ActionId::Gridlines), &QAction::toggled, m_canvas, &CanvasView::setGridVisible);
     connect(m_actions->get(ActionId::LayersPanel), &QAction::toggled, m_layers, &QWidget::setVisible);
     connect(m_layers, &QDockWidget::visibilityChanged, this,
             [this] { m_actions->get(ActionId::LayersPanel)->setChecked(m_layers->isVisible()); });
@@ -448,88 +459,8 @@ void MainWindow::connectActions()
     connect(m_canvas, &CanvasView::cursorPositionChanged, this, &MainWindow::setCursorPosition);
     connect(m_canvas, &CanvasView::contextMenuRequested, this, &MainWindow::showCanvasContextMenu);
 
-    // Commands from later milestones say so instead of silently doing nothing.
-    static const QSet<ActionId> implemented{
-        ActionId::Quit,
-        ActionId::New,
-        ActionId::Open,
-        ActionId::Save,
-        ActionId::SaveAs,
-        ActionId::SaveAsPng,
-        ActionId::SaveAsJpeg,
-        ActionId::SaveAsBmp,
-        ActionId::SaveAsProject,
-        ActionId::Print,
-        ActionId::PageSetup,
-        ActionId::PrintPreview,
-        ActionId::WallpaperFill,
-        ActionId::WallpaperTile,
-        ActionId::WallpaperCenter,
-        ActionId::AddLayer,
-        ActionId::DuplicateLayer,
-        ActionId::DeleteLayer,
-        ActionId::MergeLayerDown,
-        ActionId::ToggleLayerVisibility,
-        ActionId::ToggleBackground,
-        ActionId::BackgroundColor,
-        ActionId::Undo,
-        ActionId::Redo,
-        ActionId::Cut,
-        ActionId::Copy,
-        ActionId::CopyVisibleLayers,
-        ActionId::Paste,
-        ActionId::ImportFromFile,
-        ActionId::SelectAll,
-        ActionId::InvertSelection,
-        ActionId::DeleteSelection,
-        ActionId::Crop,
-        ActionId::RotateRight,
-        ActionId::RotateLeft,
-        ActionId::Rotate180,
-        ActionId::RotateCustom,
-        ActionId::FlipVertical,
-        ActionId::FlipHorizontal,
-        ActionId::ResizeSkew,
-        ActionId::InvertColors,
-        ActionId::ImageProperties,
-        ActionId::EditColors,
-        ActionId::About,
-        ActionId::AboutQt,
-        ActionId::ZoomIn,
-        ActionId::ZoomOut,
-        ActionId::ZoomActualSize,
-        ActionId::ZoomFit,
-        ActionId::FullScreen,
-        ActionId::StatusBar,
-        ActionId::LayersPanel,
-        ActionId::ToolbarAlwaysShow,
-        ActionId::ToolbarAutoHide,
-        ActionId::TransparentSelection,
-        ActionId::CycleSelectionTool,
-        ActionId::SizeIncrease,
-        ActionId::SizeDecrease,
-    };
-    QSet<QAction *> handled;
-    for (ActionId id : implemented) {
-        handled.insert(m_actions->get(id));
-    }
-    const QStringList toolChoicePrefixes{
-        QStringLiteral("action.tool."),  QStringLiteral("action.brush."),
-        QStringLiteral("action.shape."), QStringLiteral("action.outline."),
-        QStringLiteral("action.fill."),  QStringLiteral("action.shapeSize."),
-        QStringLiteral("action.text."),
-    };
+    // Running any command dismisses the auto-hidden ribbon.
     for (QAction *action : m_actions->allActions()) {
-        // Tool, brush, shape, style and text format choices are handled by the registry itself.
-        const bool toolChoice = std::ranges::any_of(toolChoicePrefixes, [action](const QString &prefix) {
-            return action->objectName().startsWith(prefix);
-        });
-        if (!handled.contains(action) && !toolChoice) {
-            connect(action, &QAction::triggered, this, [this, action] {
-                statusBar()->showMessage(tr("“%1” is not available yet.").arg(action->iconText()), 3000);
-            });
-        }
-        // Running any command dismisses the auto-hidden ribbon.
         connect(action, &QAction::triggered, m_ribbonHost, &RibbonHost::hideRibbonPopup);
     }
 }
@@ -775,6 +706,16 @@ void MainWindow::showBackgroundColor()
     }
 }
 
+void MainWindow::showPictureFullScreen()
+{
+    auto *view = new FullScreenView(m_editor->document().composite(), this);
+    connect(view, &FullScreenView::closed, this, [this] {
+        m_actions->get(ActionId::FullScreen)->setChecked(false);
+        activateWindow();
+    });
+    view->showFullScreen();
+}
+
 void MainWindow::updateLayerState()
 {
     const Document &document = m_editor->document();
@@ -997,7 +938,7 @@ bool MainWindow::saveFile(const QString &path, const SaveFormat &format)
     if (format.reducesColors()) {
         // Like Paint, warn before colours are thrown away.
         QMessageBox box(QMessageBox::Warning, QApplication::applicationDisplayName(),
-                        tr("Saving in this format may reduce the colours of the picture."),
+                        tr("Saving in this format may reduce the colors of the picture."),
                         QMessageBox::NoButton, this);
         box.setObjectName(QStringLiteral("dialog.colorLoss"));
         box.setInformativeText(tr("Do you want to continue?"));
@@ -1056,10 +997,15 @@ QString MainWindow::documentPixel(int x, int y) const
 
 void MainWindow::showAbout()
 {
-    QMessageBox::about(this, tr("About %1").arg(QApplication::applicationDisplayName()),
-                       tr("<h3>%1 %2</h3><p>%3.</p>")
-                           .arg(QApplication::applicationDisplayName(), QApplication::applicationVersion(),
-                                QStringLiteral(PAINT_DESCRIPTION)));
+    QMessageBox::about(
+        this, tr("About %1").arg(QApplication::applicationDisplayName()),
+        tr("<h3>%1 %2</h3>"
+           "<p>%3.</p>"
+           "<p>Inspired by Paint for Windows 11. Not affiliated with or endorsed by Microsoft.</p>"
+           "<p>Icons are based on Fluent UI System Icons by Microsoft (MIT License).<br>"
+           "Built with Qt %4.</p>")
+            .arg(QApplication::applicationDisplayName(), QApplication::applicationVersion(),
+                 QStringLiteral(PAINT_DESCRIPTION), QString::fromLatin1(qVersion())));
 }
 
 QJsonObject MainWindow::automationState() const

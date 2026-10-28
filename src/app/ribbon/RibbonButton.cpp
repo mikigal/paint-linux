@@ -1,5 +1,7 @@
 #include "ribbon/RibbonButton.h"
 
+#include "ui/Accessibility.h"
+
 #include <QActionEvent>
 #include <QMouseEvent>
 #include <QPainter>
@@ -35,6 +37,8 @@ RibbonButton::RibbonButton(Kind kind, QWidget *parent)
 {
     setAutoRaise(true);
     setFocusPolicy(Qt::TabFocus);
+    // Icon-only buttons without an action are known by their tooltip.
+    paint::ui::nameAfterToolTip(this);
     const bool large = kind == Kind::Large || kind == Kind::LargeDropDown || kind == Kind::LargeSplit;
     // Paint draws the two-row buttons with larger icons.
     setIconSize(large ? QSize(LargeIconSize, LargeIconSize) : QSize(IconSize, IconSize));

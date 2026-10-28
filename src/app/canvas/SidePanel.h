@@ -3,6 +3,7 @@
 #include "tools/ToolTypes.h"
 
 #include <QFrame>
+#include <QPointer>
 
 class QAbstractScrollArea;
 class QLabel;
@@ -56,6 +57,8 @@ private:
     void reposition();
 
     QAbstractScrollArea *m_area;
+    // Kept apart from the area, whose viewport may still send events while the area goes.
+    QPointer<QWidget> m_viewport;
 
     paint::ToolSettings *m_settings;
     SliderCard *m_size;

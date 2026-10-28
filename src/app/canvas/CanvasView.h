@@ -15,6 +15,7 @@ class Editor;
 }
 
 class QMimeData;
+class Ruler;
 
 // The workspace: the document's canvas centred on a grey background, with Paint's eight
 // resize handles, zooming and scrolling. Pointer input on the canvas drives the active tool.
@@ -38,6 +39,22 @@ public:
     void zoomToActualSize() { setZoom(1.0); }
     void zoomToFit();
 
+    // View options: Paint's rulers (in image pixels) and gridlines.
+    bool rulersVisible() const { return m_rulers; }
+    void setRulersVisible(bool visible);
+    bool gridVisible() const { return m_grid; }
+    void setGridVisible(bool visible);
+    // Image pixels between gridlines at `zoom`: at least 8 screen pixels apart, so up close the
+    // grid outlines every pixel.
+    static int gridSpacing(double zoom);
+
+    // The flattened picture the canvas shows.
+    const QImage &picture() const { return m_composite; }
+    // The part of the picture in view, in document coordinates.
+    QRectF visibleDocumentRect() const;
+    // Scrolls so that `documentPoint` is in the middle of the view (as far as the scroll bars go).
+    void centerOn(QPointF documentPoint);
+
     // The canvas rectangle in viewport coordinates.
     QRectF canvasRect() const;
     QPointF viewportToDocument(QPointF point) const;
@@ -53,6 +70,10 @@ Q_SIGNALS:
     void dropped(const QMimeData *mime, QPointF documentPosition, bool onCanvas);
     // While a canvas handle is dragged: the size the canvas will get (no value when done).
     void canvasResizePreview(std::optional<QSize> size);
+    // The picture shown changed (drawing, undo, a new image…).
+    void pictureChanged();
+    // Scrolling, zooming or resizing changed what is in view.
+    void viewChanged();
 
 protected:
     bool event(QEvent *event) override;
@@ -80,6 +101,9 @@ private:
     void handleDocumentRestructured();
     // The selection's outline or an edited shape's frame, with their handles.
     void paintSelection(QPainter &painter);
+    void paintGrid(QPainter &painter, const QRectF &canvas, const QRect &exposed);
+    void layoutRulers();
+    void updateRulers();
     void paintFrame(QPainter &painter, const QPainterPath &outline, const QList<QPointF> &handles,
                     bool rotateHandle);
     QTransform documentToViewportTransform() const;
@@ -110,6 +134,10 @@ private:
     int m_resizeHandle = -1;
     QPointF m_resizeStart;
     std::optional<QRect> m_resizeTarget;
+    Ruler *m_horizontalRuler;
+    Ruler *m_verticalRuler;
+    bool m_rulers = false;
+    bool m_grid = false;
     QTimer m_caretTimer;
     bool m_caretVisible = true;
     // The airbrush keeps spraying while the pointer rests.

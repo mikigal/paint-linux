@@ -115,12 +115,17 @@ SidePanel::SidePanel(ToolSettings *settings, QAbstractScrollArea *area)
     connect(settings, &ToolSettings::opacityChanged, this, [this] { syncTool(m_settings->tool()); });
     connect(settings, &ToolSettings::toolChanged, this, &SidePanel::syncTool);
     area->installEventFilter(this);
+    // Rulers move the viewport without resizing the area.
+    m_viewport = area->viewport();
+    m_viewport->installEventFilter(this);
     syncTool(settings->tool());
 }
 
 bool SidePanel::eventFilter(QObject *watched, QEvent *event)
 {
-    if (watched == m_area && (event->type() == QEvent::Resize || event->type() == QEvent::Show)) {
+    const bool area = watched == m_area || watched == m_viewport;
+    if (area &&
+        (event->type() == QEvent::Resize || event->type() == QEvent::Move || event->type() == QEvent::Show)) {
         reposition();
     }
     return QWidget::eventFilter(watched, event);
@@ -155,8 +160,11 @@ void SidePanel::syncTool(Tool tool)
 
 void SidePanel::reposition()
 {
+    if (!m_viewport) {
+        return;
+    }
     adjustSize();
-    const QRect area = m_area->viewport()->geometry();
+    const QRect area = m_viewport->geometry();
     move(area.left() + PanelInset - 6, area.top() + std::max(0, (area.height() - height()) / 2));
     raise();
 }

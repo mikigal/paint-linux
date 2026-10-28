@@ -22,6 +22,7 @@ class WallpaperPortal;
 class RibbonHost;
 class SidePanel;
 class TextFormatBar;
+class ThumbnailView;
 
 namespace paint {
 class Editor;
@@ -92,6 +93,7 @@ private:
     std::optional<QColor> pickColor(const QColor &initial);
     bool saveProjectAs();
     void updateLayerState();
+    void showPictureFullScreen();
     void rebuildRecentMenu();
     QPrinter *printer();
     void print();
@@ -122,4 +124,5 @@ private:
     // Kept for the session, so page setup applies to later prints.
     std::unique_ptr<QPrinter> m_printer;
     WallpaperPortal *m_wallpaper;
+    ThumbnailView *m_thumbnail;
 };

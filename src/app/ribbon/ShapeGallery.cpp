@@ -13,6 +13,7 @@ ShapeGallery::ShapeGallery(ActionRegistry *actions, QWidget *parent)
     : QScrollArea(parent)
 {
     setObjectName(QStringLiteral("ribbon.shapeGallery"));
+    setAccessibleName(tr("Shapes"));
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     viewport()->setBackgroundRole(QPalette::Base);
