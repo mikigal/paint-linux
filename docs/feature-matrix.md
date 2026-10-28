@@ -37,7 +37,7 @@ a Linux-native form).
 | Recent | Recent files submenu | Same: the last 10 opened or saved, newest first, missing files dropped; Clear list | M8 | done |
 | Save | Ctrl+S; new images default to PNG | Same | M2 | done |
 | Save as → PNG, JPEG, BMP, GIF, Other format | Format submenu; F12 | Same; F12 and Ctrl+Shift+S. Save keeps the format chosen last (e.g. a 256-colour bitmap); files are replaced only once completely written | M2/M8 | done |
-| Other format | Monochrome/16/256/24-bit BMP, JPEG, GIF, TIFF, PNG, HEIC | Same: our own BMP (1/4/8/24-bit, Windows 16-colour palette) and GIF encoders, TIFF with LZW, HEIC when kimageformats can encode it; palette formats warn about color loss first | M8 | done |
+| Other format | Monochrome/16/256/24-bit BMP, JPEG, GIF, TIFF, PNG, HEIC | Same: our own BMP (1/4/8/24-bit, Windows 16-colour palette) and GIF encoders, TIFF with LZW when qt6-imageformats is installed, HEIC when kimageformats can encode it; palette formats warn about color loss first | M8 | done |
 | Save as project | `.paint`, keeps layers | OpenRaster `.ora` (`.paint` is undocumented): layers, names, visibility, the active layer, the background and DPI; GIMP, Krita and MyPaint open it. Any OpenRaster file opens, nested stacks, offsets and opacity baked into layers | M7 | adapted |
 | Print → Print, Page setup, Print preview | Windows dialogs | `QPrintDialog`, `QPageSetupDialog`, `QPrintPreviewDialog`; the picture prints at its own DPI from the top-left, shrunk to fit; page setup lasts the session | M8 | done |
 | Share | Windows share sheet | — | — | excluded |

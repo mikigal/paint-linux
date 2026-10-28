@@ -4,6 +4,7 @@
 
 #include <QFile>
 #include <QImageReader>
+#include <QImageWriter>
 #include <QSet>
 #include <QSignalSpy>
 #include <QTemporaryDir>
@@ -28,6 +29,9 @@ private Q_SLOTS:
         QCOMPARE(saveFormats().first().format, QByteArray("png"));
         QCOMPARE(saveFormatForPath(QStringLiteral("/x/photo.JPG"))->format, QByteArray("jpeg"));
         QVERIFY(!saveFormatForPath(QStringLiteral("/x/notes.txt")));
+        // TIFF comes from an optional plugin: offered only when Qt can write it.
+        QCOMPARE(saveFormatForPath(QStringLiteral("/x/scan.tif")).has_value(),
+                 QImageWriter::supportedImageFormats().contains("tiff"));
         QVERIFY(openNameFilters().first().contains(QLatin1String("*.png")));
     }
 

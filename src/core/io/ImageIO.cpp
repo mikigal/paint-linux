@@ -52,10 +52,13 @@ const QList<SaveFormat> &saveFormats()
             {"bmp", tr("16 Color Bitmap"), bitmap, false, 4},
             {"bmp", tr("Monochrome Bitmap"), bitmap, false, 1},
             {"gif", tr("GIF picture"), {QStringLiteral("gif")}, false, 8},
-            {"tiff", tr("TIFF picture"), {QStringLiteral("tif"), QStringLiteral("tiff")}, true},
         };
-        // HEIC needs an encoder (kimageformats with libheif).
-        if (QImageWriter::supportedImageFormats().contains("heic")) {
+        // TIFF needs Qt's image formats plugin, HEIC an encoder (kimageformats with libheif).
+        const QList<QByteArray> writable = QImageWriter::supportedImageFormats();
+        if (writable.contains("tiff")) {
+            list.append({"tiff", tr("TIFF picture"), {QStringLiteral("tif"), QStringLiteral("tiff")}, true});
+        }
+        if (writable.contains("heic")) {
             list.append({"heic", tr("HEIC picture"), {QStringLiteral("heic"), QStringLiteral("heif")}, true});
         }
         return list;

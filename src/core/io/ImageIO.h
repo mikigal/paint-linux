@@ -23,8 +23,8 @@ struct SaveFormat
     bool reducesColors() const { return bitsPerPixel > 0 && bitsPerPixel <= 8; }
 };
 
-// Formats Paint offers when saving, in its order: PNG, JPEG, the four bitmap depths, GIF, TIFF,
-// and HEIC where an encoder is installed. Bitmaps share their suffixes; .bmp means 24-bit.
+// Formats Paint offers when saving, in its order: PNG, JPEG, the four bitmap depths, GIF, then TIFF
+// and HEIC where Qt can write them. Bitmaps share their suffixes; .bmp means 24-bit.
 const QList<SaveFormat> &saveFormats();
 // Paint's "Save as project": layered OpenRaster, not in the Save as list.
 const SaveFormat &projectFormat();
