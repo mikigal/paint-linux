@@ -1002,6 +1002,8 @@ void MainWindow::showAbout()
         tr("<h3>%1 %2</h3>"
            "<p>%3.</p>"
            "<p>Inspired by Paint for Windows 11. Not affiliated with or endorsed by Microsoft.</p>"
+           "<p>Free software under the GNU General Public License, version 3 or (at your option) any "
+           "later version. It comes with absolutely no warranty.</p>"
            "<p>Icons are based on Fluent UI System Icons by Microsoft (MIT License).<br>"
            "Built with Qt %4.</p>")
             .arg(QApplication::applicationDisplayName(), QApplication::applicationVersion(),

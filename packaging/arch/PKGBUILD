@@ -9,8 +9,7 @@ pkgrel=1
 pkgdesc="A native Linux take on Windows 11 Paint"
 arch=('x86_64' 'aarch64')
 url="https://mikigal.pl"
-# The project has not chosen a licence yet; set it here once it has.
-license=('LicenseRef-unspecified')
+license=('GPL-3.0-or-later')
 depends=('qt6-base' 'qt6-svg' 'libzip' 'hicolor-icon-theme')
 makedepends=('cmake' 'ninja')
 optdepends=(

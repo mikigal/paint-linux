@@ -94,6 +94,15 @@ tools/headless-session.sh stop
 clipboard tests with `wl-copy`); popups only open on the offscreen platform because synthetic input
 has no Wayland serial.
 
+## License
+
+Paint for Linux is free software: you can redistribute it and/or modify it under the terms of the
+GNU General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version. It is distributed WITHOUT ANY WARRANTY; see
+[`LICENSE`](LICENSE). The icons in `resources/icons` derive from Microsoft's Fluent UI System Icons
+(MIT License, see `resources/icons/LICENSE.txt`). Paint for Linux is not affiliated with or endorsed
+by Microsoft.
+
 ## Layout
 
 ```
